@@ -1,0 +1,256 @@
+@model PersonalKanban.ViewModels.SettingsViewModel
+
+@{
+    ViewData["Title"] = "Configuración y Copias de Seguridad";
+}
+
+<div class="container-fluid px-4 py-2">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1"><i class="bi bi-gear-fill text-primary me-2"></i> Configuración del Sistema</h4>
+            <p class="text-muted small mb-0">Administra los estados, prioridades y copias de seguridad de SQLite.</p>
+        </div>
+    </div>
+
+    <!-- Backup & Restore Card -->
+    <div class="card border-0 shadow-sm mb-4 bg-body-tertiary">
+        <div class="card-header bg-body border-0 fw-bold fs-5 text-primary">
+            <i class="bi bi-database-fill-gear me-2"></i> Backup & Restauración de SQLite (kanban.db)
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <!-- Download Backup -->
+                <div class="col-md-6 border-end">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="fs-1 text-primary"><i class="bi bi-download"></i></div>
+                        <div>
+                            <h6 class="fw-bold">Descargar Copia de Seguridad</h6>
+                            <p class="text-muted small mb-3">Obtén un respaldo completo de tu archivo de base de datos <code>kanban.db</code> en tu equipo local.</p>
+                            <a asp-action="Backup" class="btn btn-primary btn-sm">
+                                <i class="bi bi-cloud-arrow-down-fill me-1"></i> Descargar kanban.db
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Restore Backup -->
+                <div class="col-md-6">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="fs-1 text-warning"><i class="bi bi-upload"></i></div>
+                        <div>
+                            <h6 class="fw-bold">Restaurar Base de Datos</h6>
+                            <p class="text-muted small mb-3">Sustituye la base de datos actual subiendo un archivo <code>kanban.db</code> previamente respaldado.</p>
+                            <form asp-action="Restore" method="post" enctype="multipart/form-data" onsubmit="return confirm('⚠️ ATENCIÓN: Esta acción sobrescribirá todos los datos actuales de la aplicación con los del archivo seleccionado. ¿Deseas continuar?');">
+                                @Html.AntiForgeryToken()
+                                <div class="input-group input-group-sm mb-2">
+                                    <input type="file" name="dbFile" accept=".db,.sqlite,.sqlite3" class="form-control" required />
+                                    <button type="submit" class="btn btn-warning">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Statuses Management Column -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-body border-0 fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-kanban me-2 text-primary"></i> Estados del Tablero</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openCreateStatusModal()">
+                        <i class="bi bi-plus-lg me-1"></i> Nuevo Estado
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Orden</th>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th class="text-end px-3">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var status in Model.Statuses)
+                                {
+                                    <tr>
+                                        <td class="fw-bold">@status.Order</td>
+                                        <td class="fw-bold text-uppercase">@status.Name</td>
+                                        <td>
+                                            @if (status.Active)
+                                            {
+                                                <span class="badge bg-success-subtle text-success border">Activo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary border">Inactivo</span>
+                                            }
+                                        </td>
+                                        <td class="text-end px-3">
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="openEditStatusModal(@status.Id, '@status.Name', @status.Order, @(status.Active ? "true" : "false"))">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Priorities Management Column -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-body border-0 fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-flag-fill me-2 text-warning"></i> Prioridades</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openCreatePriorityModal()">
+                        <i class="bi bi-plus-lg me-1"></i> Nueva Prioridad
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Orden</th>
+                                    <th>Nombre</th>
+                                    <th class="text-end px-3">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var priority in Model.Priorities)
+                                {
+                                    <tr>
+                                        <td class="fw-bold">@priority.Order</td>
+                                        <td class="fw-bold">@priority.Name</td>
+                                        <td class="text-end px-3">
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="openEditPriorityModal(@priority.Id, '@priority.Name', @priority.Order)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Status Create/Edit -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="statusModalTitle">Estado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="statusForm" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="statusId" name="id" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre del Estado</label>
+                        <input type="text" id="statusName" name="name" class="form-control" placeholder="Ej. EN_PRUEBAS" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Orden de visualización</label>
+                        <input type="number" id="statusOrder" name="order" class="form-control" min="1" required />
+                    </div>
+                    <div class="form-check form-switch mb-3" id="statusActiveDiv">
+                        <input class="form-check-input" type="checkbox" id="statusActive" name="active" value="true" checked />
+                        <label class="form-check-label fw-bold" for="statusActive">Estado Activo</label>
+                    </div>
+                </div>
+                <div class="modal-footer bg-body-tertiary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Priority Create/Edit -->
+<div class="modal fade" id="priorityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="priorityModalTitle">Prioridad</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="priorityForm" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="priorityId" name="id" />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre de la Prioridad</label>
+                        <input type="text" id="priorityName" name="name" class="form-control" placeholder="Ej. URGENTE" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Orden</label>
+                        <input type="number" id="priorityOrder" name="order" class="form-control" min="1" required />
+                    </div>
+                </div>
+                <div class="modal-footer bg-body-tertiary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openCreateStatusModal() {
+            document.getElementById('statusModalTitle').textContent = 'Nuevo Estado';
+            document.getElementById('statusForm').action = '/Settings/CreateStatus';
+            document.getElementById('statusId').value = '0';
+            document.getElementById('statusName').value = '';
+            document.getElementById('statusOrder').value = '1';
+            document.getElementById('statusActiveDiv').style.display = 'none';
+            new bootstrap.Modal(document.getElementById('statusModal')).show();
+        }
+
+        function openEditStatusModal(id, name, order, active) {
+            document.getElementById('statusModalTitle').textContent = 'Editar Estado';
+            document.getElementById('statusForm').action = '/Settings/EditStatus';
+            document.getElementById('statusId').value = id;
+            document.getElementById('statusName').value = name;
+            document.getElementById('statusOrder').value = order;
+            document.getElementById('statusActiveDiv').style.display = 'block';
+            document.getElementById('statusActive').checked = active;
+            new bootstrap.Modal(document.getElementById('statusModal')).show();
+        }
+
+        function openCreatePriorityModal() {
+            document.getElementById('priorityModalTitle').textContent = 'Nueva Prioridad';
+            document.getElementById('priorityForm').action = '/Settings/CreatePriority';
+            document.getElementById('priorityId').value = '0';
+            document.getElementById('priorityName').value = '';
+            document.getElementById('priorityOrder').value = '1';
+            new bootstrap.Modal(document.getElementById('priorityModal')).show();
+        }
+
+        function openEditPriorityModal(id, name, order) {
+            document.getElementById('priorityModalTitle').textContent = 'Editar Prioridad';
+            document.getElementById('priorityForm').action = '/Settings/EditPriority';
+            document.getElementById('priorityId').value = id;
+            document.getElementById('priorityName').value = name;
+            document.getElementById('priorityOrder').value = order;
+            new bootstrap.Modal(document.getElementById('priorityModal')).show();
+        }
+    </script>
+}

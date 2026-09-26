@@ -1,0 +1,85 @@
+@model PersonalKanban.Models.TaskItem
+
+@{
+    var priorityClass = Model.Priority.Name.ToUpper() switch
+    {
+        "CRITICAL" => "badge-priority-critical",
+        "HIGH" => "badge-priority-high",
+        "MEDIUM" => "badge-priority-medium",
+        _ => "badge-priority-low"
+    };
+
+    var isOverdue = Model.IsOverdue;
+}
+
+<div class="kanban-card status-pill-@Model.Status.Name.ToUpper()" 
+     draggable="true" 
+     data-task-id="@Model.Id" 
+     data-status-id="@Model.StatusId"
+     onclick="openTaskDetailsModal(@Model.Id)">
+
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="kanban-card-id">#@Model.Id</span>
+        <span class="badge @priorityClass rounded-pill" style="font-size: 0.68rem;">
+            @Model.Priority.Name
+        </span>
+    </div>
+
+    <div class="kanban-card-title">
+        @Model.Title
+    </div>
+
+    <div class="kanban-card-badges">
+        @if (Model.Project != null)
+        {
+            <span class="badge bg-secondary-subtle text-secondary border rounded-pill" style="font-size: 0.7rem;">
+                <i class="bi bi-folder-fill me-1"></i> @Model.Project.Name
+            </span>
+        }
+
+        @foreach (var taskTag in Model.TaskTags)
+        {
+            <span class="badge bg-info-subtle text-info-emphasis border rounded-pill" style="font-size: 0.7rem;">
+                🏷️ @taskTag.Tag.Name
+            </span>
+        }
+    </div>
+
+    @if (Model.TotalChecklistCount > 0)
+    {
+        <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.72rem;">
+                <span><i class="bi bi-check2-square me-1"></i> Check</span>
+                <span>@Model.CompletedChecklistCount / @Model.TotalChecklistCount (@Model.ChecklistPercentage%)</span>
+            </div>
+            <div class="progress checklist-progress-bar mt-1">
+                <div class="progress-bar bg-success" role="progressbar" style="width: @Model.ChecklistPercentage%"></div>
+            </div>
+        </div>
+    }
+
+    <div class="kanban-card-footer">
+        <div>
+            @if (Model.DueDate.HasValue)
+            {
+                <span class="@(isOverdue ? "due-overdue" : "text-muted")">
+                    <i class="bi bi-calendar-event me-1"></i> @Model.DueDate.Value.ToString("dd/MM/yyyy")
+                    @if (isOverdue)
+                    {
+                        <i class="bi bi-exclamation-circle-fill ms-1" title="¡Tarea Vencida!"></i>
+                    }
+                </span>
+            }
+            else
+            {
+                <span class="text-muted"><i class="bi bi-calendar3 me-1"></i> Sin fecha</span>
+            }
+        </div>
+        <div>
+            @if (Model.WorkedHours.HasValue && Model.WorkedHours.Value > 0)
+            {
+                <span class="text-muted"><i class="bi bi-clock me-1"></i> @Model.WorkedHours h</span>
+            }
+        </div>
+    </div>
+</div>

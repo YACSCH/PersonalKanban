@@ -1,0 +1,103 @@
+@model PersonalKanban.ViewModels.KanbanBoardViewModel
+
+@{
+    ViewData["Title"] = "Tablero Kanban";
+}
+
+<div class="container-fluid px-4">
+    <!-- Filter Bar Header -->
+    <div class="card border-0 shadow-sm mb-4 bg-body-tertiary">
+        <div class="card-body p-3">
+            <form method="get" asp-controller="Home" asp-action="Index" class="row g-2 align-items-center">
+                <!-- Search Input -->
+                <div class="col-lg-3 col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-body"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" name="SearchTerm" class="form-control" placeholder="Buscar por #ID, título, tag..." value="@Model.Filter.SearchTerm" />
+                    </div>
+                </div>
+
+                <!-- Project Filter -->
+                <div class="col-lg-2 col-md-4">
+                    <select name="ProjectId" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">📁 Todos los Proyectos</option>
+                        @foreach (var proj in Model.Projects)
+                        {
+                            <option value="@proj.Id" selected="@(Model.Filter.ProjectId == proj.Id)">@proj.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Priority Filter -->
+                <div class="col-lg-2 col-md-4">
+                    <select name="PriorityId" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">🚩 Todas las Prioridades</option>
+                        @foreach (var prio in Model.Priorities)
+                        {
+                            <option value="@prio.Id" selected="@(Model.Filter.PriorityId == prio.Id)">@prio.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Tag Filter -->
+                <div class="col-lg-2 col-md-4">
+                    <select name="TagId" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">🏷️ Todas las Etiquetas</option>
+                        @foreach (var tag in Model.Tags)
+                        {
+                            <option value="@tag.Id" selected="@(Model.Filter.TagId == tag.Id)">@tag.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Date / Overdue Filter -->
+                <div class="col-lg-2 col-md-4">
+                    <select name="DateFilter" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">📅 Cualquier fecha</option>
+                        <option value="overdue" selected="@(Model.Filter.DateFilter == "overdue")">⚠️ Vencidas</option>
+                        <option value="today" selected="@(Model.Filter.DateFilter == "today")">📅 Vencen hoy</option>
+                        <option value="week" selected="@(Model.Filter.DateFilter == "week")">📆 Próximos 7 días</option>
+                    </select>
+                </div>
+
+                <!-- Clear & Search Buttons -->
+                <div class="col-lg-1 col-md-4 text-end d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-primary w-100" title="Buscar">
+                        <i class="bi bi-funnel-fill"></i>
+                    </button>
+                    @if (!string.IsNullOrEmpty(Model.Filter.SearchTerm) || Model.Filter.ProjectId.HasValue || Model.Filter.PriorityId.HasValue || Model.Filter.TagId.HasValue || !string.IsNullOrEmpty(Model.Filter.DateFilter))
+                    {
+                        <a href="@Url.Action("Index", "Home")" class="btn btn-sm btn-outline-secondary" title="Limpiar Filtros">
+                            <i class="bi bi-x-lg"></i>
+                        </a>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kanban Columns Container -->
+    <div class="kanban-board-container">
+        @foreach (var status in Model.Statuses)
+        {
+            var columnTasks = Model.Tasks.Where(t => t.StatusId == status.Id).ToList();
+
+            <div class="kanban-column" id="status-column-@status.Id">
+                <div class="kanban-column-header">
+                    <h6 class="kanban-column-title text-uppercase">
+                        <span class="status-indicator status-pill-@status.Name.ToUpper() me-1"></span>
+                        @status.Name
+                    </h6>
+                    <span class="kanban-column-count">@columnTasks.Count</span>
+                </div>
+
+                <div class="kanban-cards-wrapper" data-status-id="@status.Id">
+                    @foreach (var task in columnTasks)
+                    {
+                        @await Html.PartialAsync("_TaskCard", task)
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,129 @@
+@model PersonalKanban.ViewModels.TaskFormViewModel
+
+@{
+    var isEdit = Model.Id > 0;
+}
+
+<div class="modal fade" id="taskFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi @(isEdit ? "bi-pencil-square" : "bi-plus-circle-fill") me-2"></i>
+                    @(isEdit ? $"Editar Tarea #{Model.Id}" : "Nueva Tarea")
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form id="taskForm" asp-controller="Tasks" asp-action="@(isEdit ? "Edit" : "Create")" method="post" onsubmit="event.preventDefault(); submitTaskForm(this);">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-bold">Título <span class="text-danger">*</span></label>
+                        <input asp-for="Title" class="form-control" placeholder="Ej. Implementar consulta SQL para reporte..." required />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-bold">Descripción</label>
+                        <textarea asp-for="Description" class="form-control" rows="4" placeholder="Detalles de la tarea..."></textarea>
+                        <span asp-validation-for="Description" class="text-danger small"></span>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="StatusId" class="form-label fw-bold">Estado <span class="text-danger">*</span></label>
+                            <select asp-for="StatusId" class="form-select" required>
+                                @foreach (var status in Model.AvailableStatuses)
+                                {
+                                    <option value="@status.Id">@status.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="PriorityId" class="form-label fw-bold">Prioridad <span class="text-danger">*</span></label>
+                            <select asp-for="PriorityId" class="form-select" required>
+                                @foreach (var priority in Model.AvailablePriorities)
+                                {
+                                    <option value="@priority.Id">@priority.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ProjectId" class="form-label fw-bold">Proyecto</label>
+                            <select asp-for="ProjectId" class="form-select">
+                                <option value="">-- Sin Proyecto --</option>
+                                @foreach (var project in Model.AvailableProjects)
+                                {
+                                    <option value="@project.Id">@project.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="DueDate" class="form-label fw-bold">Fecha de Vencimiento</label>
+                            <input asp-for="DueDate" type="datetime-local" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="EstimatedHours" class="form-label fw-bold">Horas Estimadas</label>
+                            <input asp-for="EstimatedHours" type="number" step="0.5" min="0" class="form-control" placeholder="0.0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="WorkedHours" class="form-label fw-bold">Horas Trabajadas</label>
+                            <input asp-for="WorkedHours" type="number" step="0.5" min="0" class="form-control" placeholder="0.0" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Etiquetas</label>
+                        <div class="d-flex flex-wrap gap-2 p-2 border rounded bg-body-tertiary">
+                            @if (!Model.AvailableTags.Any())
+                            {
+                                <span class="text-muted small">No hay etiquetas disponibles. Puedes crearlas en la sección Etiquetas.</span>
+                            }
+                            else
+                            {
+                                @foreach (var tag in Model.AvailableTags)
+                                {
+                                    var isChecked = Model.SelectedTagIds.Contains(tag.Id);
+                                    <div class="form-check form-check-inline me-3">
+                                        <input class="form-check-input" type="checkbox" name="SelectedTagIds" value="@tag.Id" id="tag_@tag.Id" @(isChecked ? "checked" : "") />
+                                        <label class="form-check-label" for="tag_@tag.Id">🏷️ @tag.Name</label>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    @if (!isEdit)
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label fw-bold mb-0">Subtareas Iniciales (Checklist)</label>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addChecklistInput()">
+                                    <i class="bi bi-plus-circle"></i> Añadir fila
+                                </button>
+                            </div>
+                            <div id="checklistInputsContainer">
+                                <div class="input-group mb-2">
+                                    <input type="text" name="NewChecklistItems" class="form-control form-control-sm" placeholder="Ej. Crear consulta SQL" />
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer bg-body-tertiary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i> Guardar Tarea
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
