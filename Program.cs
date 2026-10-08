@@ -7,8 +7,15 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Configure SQLite DbContext
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=kanban.db";
+// Configure SQLite DbContext with rooted path
+var rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=kanban.db";
+var connectionStringBuilder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(rawConnectionString);
+if (!Path.IsPathRooted(connectionStringBuilder.DataSource))
+{
+    connectionStringBuilder.DataSource = Path.Combine(builder.Environment.ContentRootPath, connectionStringBuilder.DataSource);
+}
+var connectionString = connectionStringBuilder.ToString();
+
 builder.Services.AddDbContext<KanbanDbContext>(options =>
     options.UseSqlite(connectionString));
 
