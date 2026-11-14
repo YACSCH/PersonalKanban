@@ -1,51 +1,41 @@
-@model PersonalKanban.Models.Project
-
+@model Project
 @{
     var isEdit = Model.Id > 0;
+    var action = isEdit ? "Edit" : "Create";
 }
 
-<div class="modal fade" id="projectFormModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi @(isEdit ? "bi-pencil-square" : "bi-folder-plus") me-2"></i>
-                    @(isEdit ? "Editar Proyecto" : "Nuevo Proyecto")
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            
-            <form asp-controller="Projects" asp-action="@(isEdit ? "Edit" : "Create")" method="post">
+<div class="modal fade" id="project-modal" tabindex="-1" aria-labelledby="project-modal-title">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-controller="Projects" asp-action="@action" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" asp-for="Id" />
-                <input type="hidden" asp-for="CreatedAt" />
 
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label asp-for="Name" class="form-label fw-bold">Nombre del Proyecto <span class="text-danger">*</span></label>
-                        <input asp-for="Name" class="form-control" placeholder="Ej. Sistema de Ventas" required />
-                        <span asp-validation-for="Name" class="text-danger small"></span>
-                    </div>
-
-                    <div class="mb-3">
-                        <label asp-for="Description" class="form-label fw-bold">Descripción</label>
-                        <textarea asp-for="Description" class="form-control" rows="3" placeholder="Detalles del proyecto..."></textarea>
-                    </div>
-
-                    @if (isEdit)
-                    {
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" asp-for="Active" id="projectActiveSwitch">
-                            <label class="form-check-label fw-bold" for="projectActiveSwitch">Proyecto Activo</label>
-                        </div>
-                    }
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="project-modal-title">@(isEdit ? "Editar proyecto" : "Nuevo proyecto")</h2>
+                    <button type="button" class="btn-close" aria-label="Cerrar" data-bs-dismiss="modal"></button>
                 </div>
 
-                <div class="modal-footer bg-body-tertiary">
+                <div class="modal-body">
+                    <div asp-validation-summary="All" class="text-danger small mb-2"></div>
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label">Nombre</label>
+                        <input asp-for="Name" class="form-control" required maxlength="100" />
+                        <span asp-validation-for="Name" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label">Descripción</label>
+                        <textarea asp-for="Description" class="form-control" rows="3" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="Active" class="form-check-input" />
+                        <label asp-for="Active" class="form-check-label">Activo</label>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i> Guardar Proyecto
-                    </button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
         </div>

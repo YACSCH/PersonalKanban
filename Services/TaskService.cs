@@ -5,7 +5,7 @@ using PersonalKanban.ViewModels;
 
 namespace PersonalKanban.Services
 {
-    public class TaskService : ITaskService
+    public class TaskService
     {
         private readonly KanbanDbContext _context;
         private readonly ILogger<TaskService> _logger;
@@ -59,28 +59,10 @@ namespace PersonalKanban.Services
             if (filter.OnlyOverdue)
             {
                 var now = DateTime.Now;
-                query = query.Where(t => t.DueDate.HasValue && t.DueDate.Value < now && t.Status.Name.ToUpper() != "DONE");
+                query = query.Where(t => t.DueDate.HasValue && t.DueDate.Value < now && !t.Status.IsTerminal);
             }
 
-            if (!string.IsNullOrWhiteSpace(filter.DateFilter))
-            {
-                var now = DateTime.Now.Date;
-                if (filter.DateFilter == "today")
-                {
-                    query = query.Where(t => t.DueDate.HasValue && t.DueDate.Value.Date == now);
-                }
-                else if (filter.DateFilter == "week")
-                {
-                    var endOfWeek = now.AddDays(7);
-                    query = query.Where(t => t.DueDate.HasValue && t.DueDate.Value.Date >= now && t.DueDate.Value.Date <= endOfWeek);
-                }
-                else if (filter.DateFilter == "overdue")
-                {
-                    query = query.Where(t => t.DueDate.HasValue && t.DueDate.Value < DateTime.Now && t.Status.Name.ToUpper() != "DONE");
-                }
-            }
-
-            return await query.OrderBy(t => t.Priority.Order).ThenByDescending(t => t.CreatedAt).ToListAsync();
+            return await query.OrderByDescending(t => t.Priority.Order).ThenByDescending(t => t.CreatedAt).ToListAsync();
         }
 
         public async Task<TaskItem?> GetTaskByIdAsync(int id)
@@ -97,8 +79,35 @@ namespace PersonalKanban.Services
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        public async Task<TaskItem> CreateTaskAsync(TaskFormViewModel model)
+        public async Task<TaskItem?> CreateTaskAsync(TaskFormViewModel model)
         {
+            if (_context.CurrentUserId is null)
+            {
+                throw new InvalidOperationException("No hay usuario autenticado.");
+            }
+
+            var status = await _context.Statuses.FirstOrDefaultAsync(s => s.Id == model.StatusId);
+            if (status == null ||
+                !await _context.Priorities.AnyAsync(p => p.Id == model.PriorityId))
+            {
+                return null;
+            }
+
+            if (model.ProjectId.HasValue &&
+                !await _context.Projects.AnyAsync(p => p.Id == model.ProjectId.Value))
+            {
+                return null;
+            }
+
+            var checklistItems = model.NewChecklistItems
+                .Where(i => !string.IsNullOrWhiteSpace(i))
+                .Select(i => i.Trim())
+                .ToList();
+            if (checklistItems.Any(i => i.Length > 250))
+            {
+                return null;
+            }
+
             var task = new TaskItem
             {
                 Title = model.Title,
@@ -109,66 +118,56 @@ namespace PersonalKanban.Services
                 DueDate = model.DueDate,
                 EstimatedHours = model.EstimatedHours,
                 WorkedHours = model.WorkedHours,
+                OwnerId = _context.CurrentUserId,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
             };
 
-            // Set StartedAt or CompletedAt if initially created in IN_PROGRESS or DONE
-            var status = await _context.Statuses.FindAsync(model.StatusId);
-            if (status != null)
+            if (status.Name == "IN_PROGRESS")
             {
-                if (status.Name.ToUpper() == "IN_PROGRESS")
-                {
-                    task.StartedAt = DateTime.Now;
-                }
-                else if (status.Name.ToUpper() == "DONE")
-                {
-                    task.CompletedAt = DateTime.Now;
-                }
+                task.StartedAt = DateTime.Now;
+            }
+            if (status.IsTerminal)
+            {
+                task.CompletedAt = DateTime.Now;
             }
 
             _context.TaskItems.Add(task);
-            await _context.SaveChangesAsync();
 
-            // Tags mapping
-            if (model.SelectedTagIds != null && model.SelectedTagIds.Any())
+            if (model.SelectedTagIds.Count > 0)
             {
-                foreach (var tagId in model.SelectedTagIds)
+                // Solo etiquetas del usuario actual (el filtro global ya las limita).
+                var validTagIds = await _context.Tags
+                    .Where(t => model.SelectedTagIds.Contains(t.Id))
+                    .Select(t => t.Id)
+                    .ToListAsync();
+
+                foreach (var tagId in validTagIds)
                 {
-                    _context.TaskTags.Add(new TaskTag { TaskId = task.Id, TagId = tagId });
+                    task.TaskTags.Add(new TaskTag { TaskItem = task, TagId = tagId });
                 }
             }
 
-            // Initial Checklist items
-            if (model.NewChecklistItems != null && model.NewChecklistItems.Any())
+            int order = 1;
+            foreach (var itemDesc in checklistItems)
             {
-                int order = 1;
-                foreach (var itemDesc in model.NewChecklistItems)
+                task.ChecklistItems.Add(new TaskChecklistItem
                 {
-                    if (!string.IsNullOrWhiteSpace(itemDesc))
-                    {
-                        _context.TaskChecklistItems.Add(new TaskChecklistItem
-                        {
-                            TaskId = task.Id,
-                            Description = itemDesc.Trim(),
-                            Completed = false,
-                            Order = order++
-                        });
-                    }
-                }
+                    Description = itemDesc,
+                    Completed = false,
+                    Order = order++
+                });
             }
 
-            // History Log
-            _context.TaskHistories.Add(new TaskHistory
+            task.History.Add(new TaskHistory
             {
-                TaskId = task.Id,
                 Action = "Creación",
                 NewValue = $"Tarea '{task.Title}' creada",
                 CreatedAt = DateTime.Now
             });
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Task #{TaskId} created successfully.", task.Id);
+            _logger.LogInformation("Task #{TaskId} created for {UserId}.", task.Id, task.OwnerId);
             return task;
         }
 
@@ -176,12 +175,22 @@ namespace PersonalKanban.Services
         {
             var task = await _context.TaskItems
                 .Include(t => t.Status)
-                .Include(t => t.Priority)
-                .Include(t => t.Project)
                 .Include(t => t.TaskTags)
                 .FirstOrDefaultAsync(t => t.Id == model.Id);
 
             if (task == null) return false;
+
+            if (!await _context.Statuses.AnyAsync(s => s.Id == model.StatusId) ||
+                !await _context.Priorities.AnyAsync(p => p.Id == model.PriorityId))
+            {
+                return false;
+            }
+
+            if (model.ProjectId.HasValue &&
+                !await _context.Projects.AnyAsync(p => p.Id == model.ProjectId.Value))
+            {
+                return false;
+            }
 
             var oldTitle = task.Title;
             var oldStatusId = task.StatusId;
@@ -199,12 +208,10 @@ namespace PersonalKanban.Services
             task.WorkedHours = model.WorkedHours;
             task.UpdatedAt = DateTime.Now;
 
-            // Log changes
             if (oldTitle != model.Title)
             {
-                _context.TaskHistories.Add(new TaskHistory
+                task.History.Add(new TaskHistory
                 {
-                    TaskId = task.Id,
                     Action = "Modificación de tarea",
                     OldValue = oldTitle,
                     NewValue = model.Title,
@@ -216,9 +223,8 @@ namespace PersonalKanban.Services
             {
                 var oldPriority = await _context.Priorities.FindAsync(oldPriorityId);
                 var newPriority = await _context.Priorities.FindAsync(model.PriorityId);
-                _context.TaskHistories.Add(new TaskHistory
+                task.History.Add(new TaskHistory
                 {
-                    TaskId = task.Id,
                     Action = "Cambio de prioridad",
                     OldValue = oldPriority?.Name ?? oldPriorityId.ToString(),
                     NewValue = newPriority?.Name ?? model.PriorityId.ToString(),
@@ -230,9 +236,8 @@ namespace PersonalKanban.Services
             {
                 var oldProj = oldProjectId.HasValue ? await _context.Projects.FindAsync(oldProjectId.Value) : null;
                 var newProj = model.ProjectId.HasValue ? await _context.Projects.FindAsync(model.ProjectId.Value) : null;
-                _context.TaskHistories.Add(new TaskHistory
+                task.History.Add(new TaskHistory
                 {
-                    TaskId = task.Id,
                     Action = "Cambio de proyecto",
                     OldValue = oldProj?.Name ?? "Ninguno",
                     NewValue = newProj?.Name ?? "Ninguno",
@@ -242,9 +247,8 @@ namespace PersonalKanban.Services
 
             if (oldDueDate != model.DueDate)
             {
-                _context.TaskHistories.Add(new TaskHistory
+                task.History.Add(new TaskHistory
                 {
-                    TaskId = task.Id,
                     Action = "Cambio de fecha",
                     OldValue = oldDueDate?.ToString("dd/MM/yyyy HH:mm") ?? "Sin fecha",
                     NewValue = model.DueDate?.ToString("dd/MM/yyyy HH:mm") ?? "Sin fecha",
@@ -259,18 +263,14 @@ namespace PersonalKanban.Services
 
                 if (newStatus != null)
                 {
-                    if (newStatus.Name.ToUpper() == "IN_PROGRESS" && !task.StartedAt.HasValue)
+                    if (newStatus.Name == "IN_PROGRESS" && !task.StartedAt.HasValue)
                         task.StartedAt = DateTime.Now;
 
-                    if (newStatus.Name.ToUpper() == "DONE")
-                        task.CompletedAt = DateTime.Now;
-                    else
-                        task.CompletedAt = null;
+                    task.CompletedAt = newStatus.IsTerminal ? DateTime.Now : null;
                 }
 
-                _context.TaskHistories.Add(new TaskHistory
+                task.History.Add(new TaskHistory
                 {
-                    TaskId = task.Id,
                     Action = "Cambio de estado",
                     OldValue = oldStatus?.Name ?? oldStatusId.ToString(),
                     NewValue = newStatus?.Name ?? model.StatusId.ToString(),
@@ -278,13 +278,19 @@ namespace PersonalKanban.Services
                 });
             }
 
-            // Update Tags
-            _context.TaskTags.RemoveRange(task.TaskTags);
-            if (model.SelectedTagIds != null && model.SelectedTagIds.Any())
+            _context.TaskTags.RemoveRange(task.TaskTags.Where(tt => !model.SelectedTagIds.Contains(tt.TagId)));
+
+            if (model.SelectedTagIds.Count > 0)
             {
-                foreach (var tagId in model.SelectedTagIds)
+                var validTagIds = await _context.Tags
+                    .Where(t => model.SelectedTagIds.Contains(t.Id))
+                    .Select(t => t.Id)
+                    .ToListAsync();
+
+                var existingTagIds = task.TaskTags.Select(tt => tt.TagId).ToHashSet();
+                foreach (var tagId in validTagIds.Where(id => !existingTagIds.Contains(id)))
                 {
-                    _context.TaskTags.Add(new TaskTag { TaskId = task.Id, TagId = tagId });
+                    task.TaskTags.Add(new TaskTag { TaskId = task.Id, TagId = tagId });
                 }
             }
 
@@ -310,23 +316,15 @@ namespace PersonalKanban.Services
             task.StatusId = newStatusId;
             task.UpdatedAt = DateTime.Now;
 
-            if (newStatus.Name.ToUpper() == "IN_PROGRESS" && !task.StartedAt.HasValue)
+            if (newStatus.Name == "IN_PROGRESS" && !task.StartedAt.HasValue)
             {
                 task.StartedAt = DateTime.Now;
             }
 
-            if (newStatus.Name.ToUpper() == "DONE")
-            {
-                task.CompletedAt = DateTime.Now;
-            }
-            else
-            {
-                task.CompletedAt = null;
-            }
+            task.CompletedAt = newStatus.IsTerminal ? DateTime.Now : null;
 
-            _context.TaskHistories.Add(new TaskHistory
+            task.History.Add(new TaskHistory
             {
-                TaskId = task.Id,
                 Action = "Cambio de estado",
                 OldValue = oldStatus?.Name ?? "Desconocido",
                 NewValue = newStatus.Name,
@@ -340,15 +338,14 @@ namespace PersonalKanban.Services
 
         public async Task<bool> SoftDeleteTaskAsync(int id)
         {
-            var task = await _context.TaskItems.FindAsync(id);
+            var task = await _context.TaskItems.FirstOrDefaultAsync(t => t.Id == id);
             if (task == null) return false;
 
             task.IsDeleted = true;
             task.UpdatedAt = DateTime.Now;
 
-            _context.TaskHistories.Add(new TaskHistory
+            task.History.Add(new TaskHistory
             {
-                TaskId = task.Id,
                 Action = "Eliminación",
                 OldValue = "Activo",
                 NewValue = "Eliminado",
@@ -362,25 +359,22 @@ namespace PersonalKanban.Services
 
         public async Task<bool> AddCommentAsync(int taskId, string commentText)
         {
-            if (string.IsNullOrWhiteSpace(commentText)) return false;
+            var text = commentText.Trim();
+            if (text.Length == 0 || text.Length > 1000) return false;
 
-            var task = await _context.TaskItems.FindAsync(taskId);
+            var task = await _context.TaskItems.FirstOrDefaultAsync(t => t.Id == taskId);
             if (task == null) return false;
 
-            var comment = new TaskComment
+            task.Comments.Add(new TaskComment
             {
-                TaskId = taskId,
-                Comment = commentText.Trim(),
+                Comment = text,
                 CreatedAt = DateTime.Now
-            };
+            });
 
-            _context.TaskComments.Add(comment);
-
-            _context.TaskHistories.Add(new TaskHistory
+            task.History.Add(new TaskHistory
             {
-                TaskId = taskId,
                 Action = "Comentario agregado",
-                NewValue = commentText.Length > 50 ? commentText.Substring(0, 47) + "..." : commentText,
+                NewValue = text.Length > 50 ? text.Substring(0, 47) + "..." : text,
                 CreatedAt = DateTime.Now
             });
 
@@ -390,7 +384,8 @@ namespace PersonalKanban.Services
 
         public async Task<bool> AddChecklistItemAsync(int taskId, string description)
         {
-            if (string.IsNullOrWhiteSpace(description)) return false;
+            var text = description.Trim();
+            if (text.Length == 0 || text.Length > 250) return false;
 
             var task = await _context.TaskItems
                 .Include(t => t.ChecklistItems)
@@ -400,21 +395,17 @@ namespace PersonalKanban.Services
 
             int nextOrder = task.ChecklistItems.Count > 0 ? task.ChecklistItems.Max(c => c.Order) + 1 : 1;
 
-            var item = new TaskChecklistItem
+            task.ChecklistItems.Add(new TaskChecklistItem
             {
-                TaskId = taskId,
-                Description = description.Trim(),
+                Description = text,
                 Completed = false,
                 Order = nextOrder
-            };
+            });
 
-            _context.TaskChecklistItems.Add(item);
-
-            _context.TaskHistories.Add(new TaskHistory
+            task.History.Add(new TaskHistory
             {
-                TaskId = taskId,
                 Action = "Subtarea agregada",
-                NewValue = description.Trim(),
+                NewValue = text,
                 CreatedAt = DateTime.Now
             });
 
@@ -432,9 +423,8 @@ namespace PersonalKanban.Services
 
             item.Completed = !item.Completed;
 
-            _context.TaskHistories.Add(new TaskHistory
+            item.TaskItem.History.Add(new TaskHistory
             {
-                TaskId = item.TaskId,
                 Action = "Subtarea actualizada",
                 OldValue = item.Description,
                 NewValue = item.Completed ? "Completada" : "Pendiente",
@@ -447,7 +437,8 @@ namespace PersonalKanban.Services
 
         public async Task<bool> DeleteChecklistItemAsync(int checklistItemId)
         {
-            var item = await _context.TaskChecklistItems.FindAsync(checklistItemId);
+            var item = await _context.TaskChecklistItems
+                .FirstOrDefaultAsync(c => c.Id == checklistItemId);
             if (item == null) return false;
 
             _context.TaskChecklistItems.Remove(item);
@@ -457,16 +448,8 @@ namespace PersonalKanban.Services
 
         public async Task<List<TaskItem>> GetOverdueTasksAsync()
         {
-            var now = DateTime.Now;
-            return await _context.TaskItems
-                .Include(t => t.Status)
-                .Include(t => t.Priority)
-                .Include(t => t.Project)
-                .Include(t => t.TaskTags).ThenInclude(tt => tt.Tag)
-                .Include(t => t.ChecklistItems)
-                .Where(t => t.DueDate.HasValue && t.DueDate.Value < now && t.Status.Name.ToUpper() != "DONE")
-                .OrderBy(t => t.DueDate)
-                .ToListAsync();
+            var tasks = await GetFilteredTasksAsync(new TaskFilterViewModel { OnlyOverdue = true });
+            return tasks.OrderBy(t => t.DueDate).ToList();
         }
     }
 }

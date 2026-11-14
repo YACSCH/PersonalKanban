@@ -1,0 +1,107 @@
+@model AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Admin";
+}
+
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Panel de administración</h1>
+        <p class="page-sub">Vista global de usuarios, tareas y actividad.</p>
+    </div>
+    <a class="btn btn-secondary" asp-action="Users">Gestionar usuarios</a>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card accent-neutral">
+        <span class="stat-label">Usuarios</span>
+        <div class="stat-value">@Model.TotalUsers</div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Tareas</span>
+        <div class="stat-value">@Model.TotalTasks</div>
+    </div>
+    <div class="stat-card accent-success">
+        <span class="stat-label">Completadas</span>
+        <div class="stat-value">@Model.CompletedTasks</div>
+    </div>
+    <div class="stat-card accent-danger">
+        <span class="stat-label">Vencidas</span>
+        <div class="stat-value">@Model.OverdueTasks</div>
+    </div>
+</div>
+
+<div class="content-grid sidebar">
+    <div class="d-flex flex-column gap-3">
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Tareas por estado</h2></div>
+            <table class="table table-sm">
+                <tbody>
+                    @foreach (var row in Model.TasksByStatus)
+                    {
+                        <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">Por usuario</h2></div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Usuario</th><th class="text-end">Tareas</th><th class="text-end">Hechas</th><th class="text-end">Vencidas</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Model.Users)
+                        {
+                            <tr>
+                                <td>
+                                    @user.Email
+                                    @if (user.IsAdmin)
+                                    {
+                                        <span class="badge bg-dark ms-1">Admin</span>
+                                    }
+                                </td>
+                                <td class="text-end">@user.Total</td>
+                                <td class="text-end">@user.Completed</td>
+                                <td class="text-end @(user.Overdue > 0 ? "text-danger" : "")">@user.Overdue</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Actividad reciente</h2></div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr><th>Fecha</th><th>Usuario</th><th>Tarea</th><th>Acción</th></tr>
+                </thead>
+                <tbody>
+                    @if (!Model.RecentActivity.Any())
+                    {
+                        <tr><td colspan="4" class="text-muted">Sin actividad todavía.</td></tr>
+                    }
+                    @foreach (var row in Model.RecentActivity)
+                    {
+                        <tr>
+                            <td class="text-nowrap small text-muted">@row.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="small">@row.Email</td>
+                            <td class="small">@row.TaskTitle</td>
+                            <td class="small">
+                                @row.Action
+                                @if (!string.IsNullOrWhiteSpace(row.OldValue))
+                                {
+                                    <span class="text-muted">(@row.OldValue → @row.NewValue)</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

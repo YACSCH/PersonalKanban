@@ -1,85 +1,55 @@
-@model PersonalKanban.Models.TaskItem
+@model TaskItem
 
-@{
-    var priorityClass = Model.Priority.Name.ToUpper() switch
+<article class="kanban-card" draggable="true" data-task-id="@Model.Id" data-status-id="@Model.StatusId">
+    <div class="card-top">
+        <span class="badge priority-@Model.Priority.Name.ToLower()">@Model.Priority.Name</span>
+        <span class="card-id">#@Model.Id</span>
+    </div>
+
+    <h2 class="card-title">@Model.Title</h2>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
     {
-        "CRITICAL" => "badge-priority-critical",
-        "HIGH" => "badge-priority-high",
-        "MEDIUM" => "badge-priority-medium",
-        _ => "badge-priority-low"
-    };
+        <p class="card-desc">@Model.Description</p>
+    }
 
-    var isOverdue = Model.IsOverdue;
-}
-
-<div class="kanban-card status-pill-@Model.Status.Name.ToUpper()" 
-     draggable="true" 
-     data-task-id="@Model.Id" 
-     data-status-id="@Model.StatusId"
-     onclick="openTaskDetailsModal(@Model.Id)">
-
-    <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="kanban-card-id">#@Model.Id</span>
-        <span class="badge @priorityClass rounded-pill" style="font-size: 0.68rem;">
-            @Model.Priority.Name
-        </span>
-    </div>
-
-    <div class="kanban-card-title">
-        @Model.Title
-    </div>
-
-    <div class="kanban-card-badges">
-        @if (Model.Project != null)
-        {
-            <span class="badge bg-secondary-subtle text-secondary border rounded-pill" style="font-size: 0.7rem;">
-                <i class="bi bi-folder-fill me-1"></i> @Model.Project.Name
-            </span>
-        }
-
-        @foreach (var taskTag in Model.TaskTags)
-        {
-            <span class="badge bg-info-subtle text-info-emphasis border rounded-pill" style="font-size: 0.7rem;">
-                🏷️ @taskTag.Tag.Name
-            </span>
-        }
-    </div>
-
-    @if (Model.TotalChecklistCount > 0)
+    @if (Model.Project != null || Model.DueDate.HasValue)
     {
-        <div class="mb-2">
-            <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.72rem;">
-                <span><i class="bi bi-check2-square me-1"></i> Check</span>
-                <span>@Model.CompletedChecklistCount / @Model.TotalChecklistCount (@Model.ChecklistPercentage%)</span>
-            </div>
-            <div class="progress checklist-progress-bar mt-1">
-                <div class="progress-bar bg-success" role="progressbar" style="width: @Model.ChecklistPercentage%"></div>
-            </div>
+        <div class="card-meta">
+            @if (Model.Project != null)
+            {
+                <span>Proyecto · @Model.Project.Name</span>
+            }
+            @if (Model.DueDate.HasValue)
+            {
+                <span class="@(Model.IsOverdue ? "text-danger fw-semibold" : "")">Vence · @Model.DueDate.Value.ToString("dd/MM/yyyy HH:mm")</span>
+            }
         </div>
     }
 
-    <div class="kanban-card-footer">
-        <div>
-            @if (Model.DueDate.HasValue)
+    @if (Model.TaskTags.Any())
+    {
+        <div class="mt-2 d-flex flex-wrap gap-1">
+            @foreach (var taskTag in Model.TaskTags)
             {
-                <span class="@(isOverdue ? "due-overdue" : "text-muted")">
-                    <i class="bi bi-calendar-event me-1"></i> @Model.DueDate.Value.ToString("dd/MM/yyyy")
-                    @if (isOverdue)
-                    {
-                        <i class="bi bi-exclamation-circle-fill ms-1" title="¡Tarea Vencida!"></i>
-                    }
-                </span>
-            }
-            else
-            {
-                <span class="text-muted"><i class="bi bi-calendar3 me-1"></i> Sin fecha</span>
+                <span class="badge tag-chip">@taskTag.Tag.Name</span>
             }
         </div>
-        <div>
-            @if (Model.WorkedHours.HasValue && Model.WorkedHours.Value > 0)
-            {
-                <span class="text-muted"><i class="bi bi-clock me-1"></i> @Model.WorkedHours h</span>
-            }
+    }
+
+    @if (Model.TotalChecklistCount > 0)
+    {
+        <div class="mt-2">
+            <div class="progress" style="height: 6px;">
+                <div class="progress-bar" style="width: @(Model.ChecklistPercentage)%"></div>
+            </div>
+            <div class="card-meta mt-1">@Model.CompletedChecklistCount/@Model.TotalChecklistCount subtareas</div>
         </div>
+    }
+
+    <div class="card-actions">
+        <button class="btn btn-sm btn-outline-secondary" data-modal-url="@Url.Action("Details", "Tasks", new { id = Model.Id })">Detalle</button>
+        <button class="btn btn-sm btn-outline-primary" data-modal-url="@Url.Action("Edit", "Tasks", new { id = Model.Id })">Editar</button>
+        <button class="btn btn-sm btn-outline-danger" data-delete-task="@Model.Id">Eliminar</button>
     </div>
-</div>
+</article>

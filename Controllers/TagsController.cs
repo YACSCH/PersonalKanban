@@ -5,16 +5,16 @@ namespace PersonalKanban.Controllers
 {
     public class TagsController : Controller
     {
-        private readonly ITagService _tagService;
+        private readonly TagService _tagService;
 
-        public TagsController(ITagService tagService)
+        public TagsController(TagService tagService)
         {
             _tagService = tagService;
         }
 
         public async Task<IActionResult> Index()
         {
-            var tags = await _tagService.GetAllTagsAsync();
+            var tags = await _tagService.GetAllTagsAsync(withUsage: true);
             return View(tags);
         }
 
@@ -24,8 +24,10 @@ namespace PersonalKanban.Controllers
         {
             if (!string.IsNullOrWhiteSpace(name))
             {
-                await _tagService.CreateTagAsync(name);
-                TempData["SuccessMessage"] = "Etiqueta creada correctamente.";
+                var tag = await _tagService.CreateTagAsync(name);
+                TempData[tag is null ? "ErrorMessage" : "SuccessMessage"] = tag is null
+                    ? "La etiqueta debe tener entre 1 y 50 caracteres."
+                    : "Etiqueta creada correctamente.";
             }
             return RedirectToAction(nameof(Index));
         }
@@ -36,8 +38,10 @@ namespace PersonalKanban.Controllers
         {
             if (!string.IsNullOrWhiteSpace(name))
             {
-                await _tagService.UpdateTagAsync(id, name);
-                TempData["SuccessMessage"] = "Etiqueta actualizada correctamente.";
+                if (await _tagService.UpdateTagAsync(id, name))
+                    TempData["SuccessMessage"] = "Etiqueta actualizada correctamente.";
+                else
+                    TempData["ErrorMessage"] = "La etiqueta no existe o el nombre no es válido.";
             }
             return RedirectToAction(nameof(Index));
         }
@@ -46,8 +50,10 @@ namespace PersonalKanban.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
         {
-            await _tagService.DeleteTagAsync(id);
-            TempData["SuccessMessage"] = "Etiqueta eliminada correctamente.";
+            if (await _tagService.DeleteTagAsync(id))
+                TempData["SuccessMessage"] = "Etiqueta eliminada correctamente.";
+            else
+                TempData["ErrorMessage"] = "La etiqueta no existe.";
             return RedirectToAction(nameof(Index));
         }
     }

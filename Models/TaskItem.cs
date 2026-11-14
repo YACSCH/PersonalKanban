@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PersonalKanban.Models
@@ -26,6 +27,10 @@ namespace PersonalKanban.Models
         public int? ProjectId { get; set; }
         public Project? Project { get; set; }
 
+        public string OwnerId { get; set; } = string.Empty;
+        [ValidateNever]
+        public AppUser Owner { get; set; } = null!;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? StartedAt { get; set; }
         public DateTime? DueDate { get; set; }
@@ -36,9 +41,6 @@ namespace PersonalKanban.Models
 
         [Range(0, 1000)]
         public double? WorkedHours { get; set; }
-
-        [StringLength(100)]
-        public string? CreatedBy { get; set; }
 
         public DateTime? UpdatedAt { get; set; }
 
@@ -61,6 +63,6 @@ namespace PersonalKanban.Models
         public int ChecklistPercentage => TotalChecklistCount == 0 ? 0 : (int)Math.Round((double)CompletedChecklistCount / TotalChecklistCount * 100);
 
         [NotMapped]
-        public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Now && (Status == null || Status.Name.ToUpper() != "DONE");
+        public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Now && Status?.IsTerminal != true;
     }
 }

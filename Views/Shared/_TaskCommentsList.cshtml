@@ -1,21 +1,15 @@
-@model IEnumerable<PersonalKanban.Models.TaskComment>
+@model IEnumerable<TaskComment>
 
-@if (!Model.Any())
-{
-    <p class="text-muted small italic mb-0">No hay comentarios aún.</p>
-}
-else
-{
-    <div class="d-flex flex-column gap-2">
-        @foreach (var comment in Model)
-        {
-            <div class="p-2 rounded bg-body-secondary border">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="fw-bold small text-primary">Comentario</span>
-                    <span class="text-muted" style="font-size: 0.7rem;">@comment.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
-                </div>
-                <div class="small" style="white-space: pre-wrap;">@comment.Comment</div>
-            </div>
-        }
-    </div>
-}
+<ul class="list-group list-group-flush">
+    @if (!Model.Any())
+    {
+        <li class="list-group-item px-0 text-muted small">Sin comentarios.</li>
+    }
+    @foreach (var comment in Model)
+    {
+        <li class="list-group-item px-0">
+            <div class="small text-muted">@comment.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+            <div>@comment.Comment</div>
+        </li>
+    }
+</ul>

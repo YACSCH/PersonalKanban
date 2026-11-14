@@ -7,17 +7,17 @@ namespace PersonalKanban.Controllers
 {
     public class TasksController : Controller
     {
-        private readonly ITaskService _taskService;
-        private readonly IProjectService _projectService;
-        private readonly ITagService _tagService;
-        private readonly ISettingsService _settingsService;
+        private readonly TaskService _taskService;
+        private readonly ProjectService _projectService;
+        private readonly TagService _tagService;
+        private readonly SettingsService _settingsService;
         private readonly ILogger<TasksController> _logger;
 
         public TasksController(
-            ITaskService taskService,
-            IProjectService projectService,
-            ITagService tagService,
-            ISettingsService settingsService,
+            TaskService taskService,
+            ProjectService projectService,
+            TagService tagService,
+            SettingsService settingsService,
             ILogger<TasksController> logger)
         {
             _taskService = taskService;
@@ -31,28 +31,19 @@ namespace PersonalKanban.Controllers
         public async Task<IActionResult> Details(int id)
         {
             var task = await _taskService.GetTaskByIdAsync(id);
-            if (task == null)
-            {
-                return NotFound(new { success = false, message = "Tarea no encontrada." });
-            }
+            if (task == null) return NotFound();
             return PartialView("_TaskDetailModal", task);
         }
 
         [HttpGet]
         public async Task<IActionResult> Create()
         {
-            var settings = await _settingsService.GetSettingsDataAsync();
-            var todoStatus = settings.Statuses.FirstOrDefault(s => s.Name.ToUpper() == "TODO") ?? settings.Statuses.FirstOrDefault();
-
-            var model = new TaskFormViewModel
-            {
-                StatusId = todoStatus?.Id ?? 1,
-                PriorityId = settings.Priorities.FirstOrDefault(p => p.Name.ToUpper() == "MEDIUM")?.Id ?? settings.Priorities.FirstOrDefault()?.Id ?? 1,
-                AvailableStatuses = settings.Statuses.Where(s => s.Active).ToList(),
-                AvailablePriorities = settings.Priorities,
-                AvailableProjects = await _projectService.GetActiveProjectsAsync(),
-                AvailableTags = await _tagService.GetAllTagsAsync()
-            };
+            var model = new TaskFormViewModel();
+            await FillOptionsAsync(model);
+            model.StatusId = model.AvailableStatuses.FirstOrDefault(s => s.IsInitial)?.Id
+                ?? model.AvailableStatuses.First().Id;
+            model.PriorityId = model.AvailablePriorities.FirstOrDefault(p => p.Name == "MEDIUM")?.Id
+                ?? model.AvailablePriorities.First().Id;
 
             return PartialView("_TaskFormModal", model);
         }
@@ -64,15 +55,14 @@ namespace PersonalKanban.Controllers
             if (ModelState.IsValid)
             {
                 var task = await _taskService.CreateTaskAsync(model);
+                if (task == null)
+                {
+                    return BadRequest(new { success = false, message = "Revisa el estado, la prioridad, el proyecto y las subtareas." });
+                }
                 return Json(new { success = true, taskId = task.Id, message = "Tarea creada correctamente." });
             }
 
-            var settings = await _settingsService.GetSettingsDataAsync();
-            model.AvailableStatuses = settings.Statuses.Where(s => s.Active).ToList();
-            model.AvailablePriorities = settings.Priorities;
-            model.AvailableProjects = await _projectService.GetActiveProjectsAsync();
-            model.AvailableTags = await _tagService.GetAllTagsAsync();
-
+            await FillOptionsAsync(model);
             return PartialView("_TaskFormModal", model);
         }
 
@@ -81,8 +71,6 @@ namespace PersonalKanban.Controllers
         {
             var task = await _taskService.GetTaskByIdAsync(id);
             if (task == null) return NotFound();
-
-            var settings = await _settingsService.GetSettingsDataAsync();
 
             var model = new TaskFormViewModel
             {
@@ -95,13 +83,10 @@ namespace PersonalKanban.Controllers
                 DueDate = task.DueDate,
                 EstimatedHours = task.EstimatedHours,
                 WorkedHours = task.WorkedHours,
-                SelectedTagIds = task.TaskTags.Select(tt => tt.TagId).ToList(),
-                AvailableStatuses = settings.Statuses.Where(s => s.Active).ToList(),
-                AvailablePriorities = settings.Priorities,
-                AvailableProjects = await _projectService.GetActiveProjectsAsync(),
-                AvailableTags = await _tagService.GetAllTagsAsync()
+                SelectedTagIds = task.TaskTags.Select(tt => tt.TagId).ToList()
             };
 
+            await FillOptionsAsync(model);
             return PartialView("_TaskFormModal", model);
         }
 
@@ -119,17 +104,12 @@ namespace PersonalKanban.Controllers
                 return Json(new { success = false, message = "No se encontró la tarea para actualizar." });
             }
 
-            var settings = await _settingsService.GetSettingsDataAsync();
-            model.AvailableStatuses = settings.Statuses.Where(s => s.Active).ToList();
-            model.AvailablePriorities = settings.Priorities;
-            model.AvailableProjects = await _projectService.GetActiveProjectsAsync();
-            model.AvailableTags = await _tagService.GetAllTagsAsync();
-
+            await FillOptionsAsync(model);
             return PartialView("_TaskFormModal", model);
         }
 
         [HttpPost]
-        [IgnoreAntiforgeryToken]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangeStatus([FromBody] ChangeStatusRequest request)
         {
             if (request == null || request.TaskId <= 0 || request.StatusId <= 0)
@@ -207,6 +187,15 @@ namespace PersonalKanban.Controllers
                 return PartialView("_TaskChecklist", task);
             }
             return BadRequest(new { success = false });
+        }
+
+        private async Task FillOptionsAsync(TaskFormViewModel model)
+        {
+            var statuses = await _settingsService.GetStatusesAsync();
+            model.AvailableStatuses = statuses.Where(s => s.Active).ToList();
+            model.AvailablePriorities = await _settingsService.GetPrioritiesAsync();
+            model.AvailableProjects = await _projectService.GetActiveProjectsAsync();
+            model.AvailableTags = await _tagService.GetAllTagsAsync();
         }
     }
 }

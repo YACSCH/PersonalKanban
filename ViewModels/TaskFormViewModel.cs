@@ -11,6 +11,7 @@ namespace PersonalKanban.ViewModels
         [StringLength(200, ErrorMessage = "El título no puede exceder los 200 caracteres.")]
         public string Title { get; set; } = string.Empty;
 
+        [StringLength(4000, ErrorMessage = "La descripción no puede exceder los 4000 caracteres.")]
         public string? Description { get; set; }
 
         [Required(ErrorMessage = "El estado es obligatorio.")]

@@ -1,284 +1,107 @@
-@model PersonalKanban.Models.TaskItem
+@model TaskItem
 
-<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-body-tertiary">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-secondary">#@Model.Id</span>
-                    <h5 class="modal-title fw-bold mb-0">@Model.Title</h5>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal fade" id="task-detail-modal" tabindex="-1" aria-labelledby="task-detail-title">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="task-detail-title">#@Model.Id · @Model.Title</h2>
+                <button type="button" class="btn-close" aria-label="Cerrar" data-bs-dismiss="modal"></button>
             </div>
-            
+
             <div class="modal-body">
-                <div class="row g-4">
-                    <!-- Left Column: Details, Description, Checklist, Comments -->
-                    <div class="col-lg-8">
-                        <!-- Badges summary -->
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            <span class="badge bg-primary-subtle text-primary border">
-                                <i class="bi bi-tag-fill me-1"></i> Estado: @Model.Status.Name
-                            </span>
-                            <span class="badge bg-warning-subtle text-warning-emphasis border">
-                                <i class="bi bi-flag-fill me-1"></i> Prioridad: @Model.Priority.Name
-                            </span>
-                            @if (Model.Project != null)
-                            {
-                                <span class="badge bg-info-subtle text-info-emphasis border">
-                                    <i class="bi bi-folder-fill me-1"></i> @Model.Project.Name
-                                </span>
-                            }
-                        </div>
-
-                        <!-- Description -->
-                        <div class="mb-4">
-                            <h6 class="fw-bold text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.05em;">
-                                <i class="bi bi-justify-left me-1"></i> Descripción
-                            </h6>
-                            <div class="p-3 bg-body-tertiary rounded-3 border">
-                                @if (string.IsNullOrWhiteSpace(Model.Description))
-                                {
-                                    <span class="text-muted italic">Sin descripción proporcionada.</span>
-                                }
-                                else
-                                {
-                                    <p class="mb-0 style-preserve-line-breaks" style="white-space: pre-wrap;">@Model.Description</p>
-                                }
-                            </div>
-                        </div>
-
-                        <!-- Checklist section -->
-                        <div class="mb-4">
-                            <h6 class="fw-bold text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.05em;">
-                                <i class="bi bi-check2-square me-1"></i> Checklist / Subtareas
-                            </h6>
-                            <div id="checklistContainer">
-                                @await Html.PartialAsync("_TaskChecklist", Model)
-                            </div>
-                        </div>
-
-                        <!-- Comments Section -->
-                        <div class="mb-4">
-                            <h6 class="fw-bold text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.05em;">
-                                <i class="bi bi-chat-left-text me-1"></i> Comentarios
-                            </h6>
-                            <form id="addCommentForm" onsubmit="event.preventDefault(); submitComment(@Model.Id);">
-                                @Html.AntiForgeryToken()
-                                <div class="input-group mb-3">
-                                    <input type="text" id="commentTextInput" class="form-control" placeholder="Escribir un comentario..." required />
-                                    <button class="btn btn-primary" type="submit">
-                                        <i class="bi bi-send-fill"></i> Comentar
-                                    </button>
-                                </div>
-                            </form>
-
-                            <div id="commentsListContainer" style="max-height: 250px; overflow-y: auto;">
-                                @await Html.PartialAsync("_TaskCommentsList", Model.Comments)
-                            </div>
-                        </div>
-
-                        <!-- History Section -->
-                        <div>
-                            <h6 class="fw-bold text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.05em;">
-                                <i class="bi bi-clock-history me-1"></i> Historial de Cambios
-                            </h6>
-                            <div class="timeline ps-2 border-start" style="max-height: 200px; overflow-y: auto;">
-                                @if (!Model.History.Any())
-                                {
-                                    <span class="text-muted small">Sin cambios registrados.</span>
-                                }
-                                else
-                                {
-                                    @foreach (var h in Model.History)
-                                    {
-                                        <div class="mb-2 ps-3 position-relative small">
-                                            <span class="fw-bold">@h.Action</span> 
-                                            @if (!string.IsNullOrEmpty(h.OldValue))
-                                            {
-                                                <span class="text-muted">(@h.OldValue &rarr; @h.NewValue)</span>
-                                            }
-                                            else if (!string.IsNullOrEmpty(h.NewValue))
-                                            {
-                                                <span class="text-secondary">: @h.NewValue</span>
-                                            }
-                                            <div class="text-muted" style="font-size: 0.72rem;">@h.CreatedAt.ToString("g")</div>
-                                        </div>
-                                    }
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Meta Information Sidebar -->
-                    <div class="col-lg-4 bg-body-tertiary p-3 rounded-3 border">
-                        <h6 class="fw-bold border-bottom pb-2 mb-3">Información General</h6>
-
-                        <div class="mb-3">
-                            <label class="form-label text-muted small mb-1">Fecha de Vencimiento</label>
-                            <div>
-                                @if (Model.DueDate.HasValue)
-                                {
-                                    <span class="badge @(Model.IsOverdue ? "bg-danger" : "bg-secondary") p-2">
-                                        <i class="bi bi-calendar-event me-1"></i> @Model.DueDate.Value.ToString("dd/MM/yyyy HH:mm")
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted small">No establecida</span>
-                                }
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label text-muted small mb-1">Etiquetas</label>
-                            <div class="d-flex flex-wrap gap-1">
-                                @if (!Model.TaskTags.Any())
-                                {
-                                    <span class="text-muted small">Sin etiquetas</span>
-                                }
-                                else
-                                {
-                                    @foreach (var tt in Model.TaskTags)
-                                    {
-                                        <span class="badge bg-info text-dark">🏷️ @tt.Tag.Name</span>
-                                    }
-                                }
-                            </div>
-                        </div>
-
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label text-muted small mb-1">Est. Horas</label>
-                                <div class="fw-bold">@(Model.EstimatedHours.HasValue ? $"{Model.EstimatedHours} h" : "-")</div>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label text-muted small mb-1">Trabajadas</label>
-                                <div class="fw-bold">@(Model.WorkedHours.HasValue ? $"{Model.WorkedHours} h" : "-")</div>
-                            </div>
-                        </div>
-
-                        <hr />
-
-                        <div class="mb-2 text-muted" style="font-size: 0.75rem;">
-                            <div><strong>Creación:</strong> @Model.CreatedAt.ToString("g")</div>
-                            <div><strong>Inicio:</strong> @(Model.StartedAt.HasValue ? Model.StartedAt.Value.ToString("g") : "-")</div>
-                            <div><strong>Finalización:</strong> @(Model.CompletedAt.HasValue ? Model.CompletedAt.Value.ToString("g") : "-")</div>
-                            <div><strong>Última actualización:</strong> @(Model.UpdatedAt.HasValue ? Model.UpdatedAt.Value.ToString("g") : "-")</div>
-                        </div>
-
-                        <hr />
-
-                        <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-primary" onclick="openEditTaskModal(@Model.Id)">
-                                <i class="bi bi-pencil-square me-1"></i> Editar Tarea
-                            </button>
-                            <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteTask(@Model.Id)">
-                                <i class="bi bi-trash-fill me-1"></i> Eliminar Tarea
-                            </button>
-                        </div>
-                    </div>
+                <div class="d-flex gap-2 mb-3">
+                    <span class="badge bg-secondary">@Model.Status.Name</span>
+                    <span class="badge priority-@Model.Priority.Name.ToLower()">@Model.Priority.Name</span>
+                    @if (Model.Project != null)
+                    {
+                        <span class="badge bg-light text-dark border">@Model.Project.Name</span>
+                    }
                 </div>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <p class="mb-3">@Model.Description</p>
+                }
+
+                <div class="row small text-muted mb-3 g-2">
+                    <div class="col-md-4">Creada: @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                    <div class="col-md-4">
+                        Vence:
+                        @if (Model.DueDate.HasValue)
+                        {
+                            <span class="@(Model.IsOverdue ? "text-danger fw-semibold" : "")">@Model.DueDate.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                        }
+                        else
+                        {
+                            <span>Sin fecha</span>
+                        }
+                    </div>
+                    <div class="col-md-4">Horas: @(Model.WorkedHours ?? 0) / @(Model.EstimatedHours ?? 0)</div>
+                </div>
+
+                @if (Model.TaskTags.Any())
+                {
+                    <div class="mb-3 d-flex flex-wrap gap-1">
+                        @foreach (var taskTag in Model.TaskTags)
+                        {
+                            <span class="badge bg-light text-dark border">@taskTag.Tag.Name</span>
+                        }
+                    </div>
+                }
+
+                <div id="checklist-container">
+                    @await Html.PartialAsync("_TaskChecklist", Model)
+                </div>
+
+                <hr />
+
+                <h3 class="h6">Comentarios</h3>
+                <div id="comments-container">
+                    @await Html.PartialAsync("_TaskCommentsList", Model.Comments)
+                </div>
+
+                <form asp-controller="Tasks" asp-action="AddComment" method="post" data-comment-form="true" data-task-id="@Model.Id" class="mt-2">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="taskId" value="@Model.Id" />
+                    <div class="input-group input-group-sm">
+                        <input name="commentText" class="form-control" placeholder="Escribe un comentario" required maxlength="1000" />
+                        <button type="submit" class="btn btn-outline-secondary">Comentar</button>
+                    </div>
+                </form>
+
+                <hr />
+
+                <h3 class="h6">Historial</h3>
+                @if (!Model.History.Any())
+                {
+                    <p class="text-muted small">Sin cambios registrados.</p>
+                }
+                else
+                {
+                    <ul class="list-unstyled small mb-0">
+                        @foreach (var entry in Model.History.OrderByDescending(h => h.CreatedAt).Take(15))
+                        {
+                            <li class="mb-1">
+                                <span class="text-muted">@entry.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                · <strong>@entry.Action</strong>
+                                @if (!string.IsNullOrWhiteSpace(entry.OldValue))
+                                {
+                                    <span> — @entry.OldValue → @entry.NewValue</span>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(entry.NewValue))
+                                {
+                                    <span> — @entry.NewValue</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-outline-primary" data-modal-url="@Url.Action("Edit", "Tasks", new { id = Model.Id })">Editar</button>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    async function submitComment(taskId) {
-        const input = document.getElementById('commentTextInput');
-        const commentText = input.value.trim();
-        if (!commentText) return;
-
-        const token = document.querySelector('#addCommentForm input[name="__RequestVerificationToken"]').value;
-        const formData = new FormData();
-        formData.append('taskId', taskId);
-        formData.append('commentText', commentText);
-        formData.append('__RequestVerificationToken', token);
-
-        try {
-            const res = await fetch('/Tasks/AddComment', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                const html = await res.text();
-                document.getElementById('commentsListContainer').innerHTML = html;
-                input.value = '';
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    async function submitAddChecklistItem(taskId) {
-        const input = document.getElementById('newCheckitemInput');
-        const desc = input.value.trim();
-        if (!desc) return;
-
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const formData = new FormData();
-        formData.append('taskId', taskId);
-        formData.append('description', desc);
-        if (token) formData.append('__RequestVerificationToken', token);
-
-        try {
-            const res = await fetch('/Tasks/AddChecklistItem', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                const html = await res.text();
-                document.getElementById('checklistContainer').innerHTML = html;
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    async function toggleCheckitem(itemId, taskId) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const formData = new FormData();
-        formData.append('checklistItemId', itemId);
-        formData.append('taskId', taskId);
-        if (token) formData.append('__RequestVerificationToken', token);
-
-        try {
-            const res = await fetch('/Tasks/ToggleChecklistItem', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                const html = await res.text();
-                document.getElementById('checklistContainer').innerHTML = html;
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    async function deleteCheckitem(itemId, taskId) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const formData = new FormData();
-        formData.append('checklistItemId', itemId);
-        formData.append('taskId', taskId);
-        if (token) formData.append('__RequestVerificationToken', token);
-
-        try {
-            const res = await fetch('/Tasks/DeleteChecklistItem', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                const html = await res.text();
-                document.getElementById('checklistContainer').innerHTML = html;
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-</script>

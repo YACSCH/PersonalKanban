@@ -6,21 +6,19 @@
 .vs/
 .vscode/
 .idea/
+TestResults/
 
 ## User-specific files
 *.user
 *.userosscache
 *.sln.docstates
 
-## Sensitive or local database files
+## Local secrets and databases
+.env
+*.db
 *.db-shm
 *.db-wal
 
 ## OS files
 .DS_Store
 Thumbs.db
-
-## Build & Local wrappers
-publish/
-powershell.bat
-

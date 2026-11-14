@@ -4,7 +4,7 @@ using PersonalKanban.Models;
 
 namespace PersonalKanban.Services
 {
-    public class TagService : ITagService
+    public class TagService
     {
         private readonly KanbanDbContext _context;
 
@@ -13,26 +13,25 @@ namespace PersonalKanban.Services
             _context = context;
         }
 
-        public async Task<List<Tag>> GetAllTagsAsync()
+        public async Task<List<Tag>> GetAllTagsAsync(bool withUsage = false)
         {
-            return await _context.Tags
-                .Include(t => t.TaskTags)
-                .OrderBy(t => t.Name)
-                .ToListAsync();
+            var query = _context.Tags.AsQueryable();
+            if (withUsage) query = query.Include(t => t.TaskTags);
+            return await query.OrderBy(t => t.Name).ToListAsync();
         }
 
-        public async Task<Tag?> GetTagByIdAsync(int id)
+        public async Task<Tag?> CreateTagAsync(string name)
         {
-            return await _context.Tags.FindAsync(id);
-        }
-
-        public async Task<Tag> CreateTagAsync(string name)
-        {
+            var ownerId = _context.CurrentUserId
+                ?? throw new InvalidOperationException("No hay usuario autenticado.");
             var nameTrimmed = name.Trim();
-            var existing = await _context.Tags.FirstOrDefaultAsync(t => t.Name.ToLower() == nameTrimmed.ToLower());
+            if (nameTrimmed.Length == 0 || nameTrimmed.Length > 50) return null;
+
+            var existing = await _context.Tags
+                .FirstOrDefaultAsync(t => t.OwnerId == ownerId && t.Name.ToLower() == nameTrimmed.ToLower());
             if (existing != null) return existing;
 
-            var tag = new Tag { Name = nameTrimmed };
+            var tag = new Tag { Name = nameTrimmed, OwnerId = ownerId };
             _context.Tags.Add(tag);
             await _context.SaveChangesAsync();
             return tag;
@@ -40,17 +39,20 @@ namespace PersonalKanban.Services
 
         public async Task<bool> UpdateTagAsync(int id, string name)
         {
-            var tag = await _context.Tags.FindAsync(id);
+            var tag = await _context.Tags.FirstOrDefaultAsync(t => t.Id == id);
             if (tag == null) return false;
 
-            tag.Name = name.Trim();
+            var nameTrimmed = name.Trim();
+            if (nameTrimmed.Length == 0 || nameTrimmed.Length > 50) return false;
+
+            tag.Name = nameTrimmed;
             await _context.SaveChangesAsync();
             return true;
         }
 
         public async Task<bool> DeleteTagAsync(int id)
         {
-            var tag = await _context.Tags.FindAsync(id);
+            var tag = await _context.Tags.FirstOrDefaultAsync(t => t.Id == id);
             if (tag == null) return false;
 
             _context.Tags.Remove(tag);

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace PersonalKanban.Models
 {
@@ -17,6 +18,10 @@ namespace PersonalKanban.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public bool Active { get; set; } = true;
+
+        public string OwnerId { get; set; } = string.Empty;
+        [ValidateNever]
+        public AppUser Owner { get; set; } = null!;
 
         // Navigation property
         public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();

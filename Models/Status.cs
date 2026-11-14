@@ -15,6 +15,12 @@ namespace PersonalKanban.Models
 
         public bool Active { get; set; } = true;
 
+        // Estado por defecto para tareas nuevas
+        public bool IsInitial { get; set; }
+
+        // Estado final: detiene el conteo de vencidas y marca CompletedAt
+        public bool IsTerminal { get; set; }
+
         // Navigation property
         public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
     }

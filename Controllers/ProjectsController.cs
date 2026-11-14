@@ -6,13 +6,11 @@ namespace PersonalKanban.Controllers
 {
     public class ProjectsController : Controller
     {
-        private readonly IProjectService _projectService;
-        private readonly ILogger<ProjectsController> _logger;
+        private readonly ProjectService _projectService;
 
-        public ProjectsController(IProjectService projectService, ILogger<ProjectsController> logger)
+        public ProjectsController(ProjectService projectService)
         {
             _projectService = projectService;
-            _logger = logger;
         }
 
         public async Task<IActionResult> Index()
@@ -54,8 +52,10 @@ namespace PersonalKanban.Controllers
         {
             if (ModelState.IsValid)
             {
-                await _projectService.UpdateProjectAsync(project);
-                TempData["SuccessMessage"] = "Proyecto actualizado correctamente.";
+                if (await _projectService.UpdateProjectAsync(project))
+                    TempData["SuccessMessage"] = "Proyecto actualizado correctamente.";
+                else
+                    TempData["ErrorMessage"] = "El proyecto no existe.";
                 return RedirectToAction(nameof(Index));
             }
             return PartialView("_ProjectFormModal", project);
@@ -65,8 +65,10 @@ namespace PersonalKanban.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ToggleActive(int id)
         {
-            await _projectService.ToggleProjectActiveAsync(id);
-            TempData["SuccessMessage"] = "Estado del proyecto actualizado.";
+            if (await _projectService.ToggleProjectActiveAsync(id))
+                TempData["SuccessMessage"] = "Estado del proyecto actualizado.";
+            else
+                TempData["ErrorMessage"] = "El proyecto no existe.";
             return RedirectToAction(nameof(Index));
         }
 

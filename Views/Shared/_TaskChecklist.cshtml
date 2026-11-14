@@ -1,41 +1,37 @@
-@model PersonalKanban.Models.TaskItem
+@model TaskItem
 
-@{
-    var count = Model.CompletedChecklistCount;
-    var total = Model.TotalChecklistCount;
-    var pct = Model.ChecklistPercentage;
-}
-
-<div class="mb-3">
-    <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="small fw-bold text-muted">Progreso: @count / @total completadas — @pct%</span>
-        <span class="badge bg-secondary">@pct%</span>
-    </div>
-    <div class="progress checklist-progress-bar">
-        <div class="progress-bar bg-success" role="progressbar" style="width: @pct%"></div>
-    </div>
-</div>
-
-<div class="list-group mb-3">
-    @foreach (var item in Model.ChecklistItems)
-    {
-        <div class="list-group-item d-flex justify-content-between align-items-center p-2">
-            <div class="form-check mb-0">
-                <input class="form-check-input" type="checkbox" id="chk_@item.Id" @(item.Completed ? "checked" : "") onchange="toggleCheckitem(@item.Id, @Model.Id)" />
-                <label class="form-check-label @(item.Completed ? "text-decoration-line-through text-muted" : "")" for="chk_@item.Id">
-                    @item.Description
-                </label>
-            </div>
-            <button type="button" class="btn btn-sm text-danger border-0 p-0 ms-2" onclick="deleteCheckitem(@item.Id, @Model.Id)">
-                <i class="bi bi-x-circle"></i>
-            </button>
+@if (Model != null)
+{
+    <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <h3 class="h6 mb-0">Subtareas</h3>
+            <span class="small text-muted">@Model.CompletedChecklistCount/@Model.TotalChecklistCount · @Model.ChecklistPercentage%</span>
         </div>
-    }
-</div>
 
-<div class="input-group input-group-sm">
-    <input type="text" id="newCheckitemInput" class="form-control" placeholder="Agregar subtarea..." />
-    <button class="btn btn-outline-primary" type="button" onclick="submitAddChecklistItem(@Model.Id)">
-        <i class="bi bi-plus-circle me-1"></i> Agregar
-    </button>
-</div>
+        <div class="progress mb-2" style="height: 6px;">
+            <div class="progress-bar" style="width: @(Model.ChecklistPercentage)%"></div>
+        </div>
+
+        <ul class="list-group list-group-flush">
+            @foreach (var item in Model.ChecklistItems.OrderBy(c => c.Order))
+            {
+                <li class="list-group-item px-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input mt-0" type="checkbox"
+                           data-toggle-checklist="@item.Id" data-task-id="@Model.Id"
+                           checked="@item.Completed" />
+                    <span class="@(item.Completed ? "text-decoration-line-through text-muted" : "")">@item.Description</span>
+                    <button type="button" class="btn btn-sm btn-link text-danger ms-auto py-0"
+                            data-delete-checklist="@item.Id" data-task-id="@Model.Id">Quitar</button>
+                </li>
+            }
+        </ul>
+
+        <form asp-controller="Tasks" asp-action="AddChecklistItem" method="post"
+              data-checklist-form="true" data-task-id="@Model.Id" class="input-group input-group-sm mt-2">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="taskId" value="@Model.Id" />
+            <input name="description" class="form-control" placeholder="Nueva subtarea" required maxlength="250" />
+            <button type="submit" class="btn btn-outline-secondary">Agregar</button>
+        </form>
+    </div>
+}

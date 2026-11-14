@@ -4,7 +4,7 @@ using PersonalKanban.Models;
 
 namespace PersonalKanban.Services
 {
-    public class ProjectService : IProjectService
+    public class ProjectService
     {
         private readonly KanbanDbContext _context;
         private readonly ILogger<ProjectService> _logger;
@@ -43,6 +43,8 @@ namespace PersonalKanban.Services
         {
             project.CreatedAt = DateTime.Now;
             project.Active = true;
+            project.OwnerId = _context.CurrentUserId
+                ?? throw new InvalidOperationException("No hay usuario autenticado.");
             _context.Projects.Add(project);
             await _context.SaveChangesAsync();
             _logger.LogInformation("Project {ProjectName} created.", project.Name);
@@ -51,7 +53,7 @@ namespace PersonalKanban.Services
 
         public async Task<bool> UpdateProjectAsync(Project project)
         {
-            var existing = await _context.Projects.FindAsync(project.Id);
+            var existing = await _context.Projects.FirstOrDefaultAsync(p => p.Id == project.Id);
             if (existing == null) return false;
 
             existing.Name = project.Name;
@@ -65,7 +67,7 @@ namespace PersonalKanban.Services
 
         public async Task<bool> ToggleProjectActiveAsync(int id)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id);
             if (project == null) return false;
 
             project.Active = !project.Active;

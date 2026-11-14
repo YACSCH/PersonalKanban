@@ -1,261 +1,97 @@
-@model PersonalKanban.ViewModels.DashboardViewModel
-
+@model DashboardViewModel
 @{
-    ViewData["Title"] = "Dashboard de Estadísticas";
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="container-fluid px-4 py-2">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h4 class="fw-bold mb-1"><i class="bi bi-speedometer2 text-primary me-2"></i> Dashboard General</h4>
-            <p class="text-muted small mb-0">Resumen y métricas de productividad de tu tablero Kanban personal.</p>
-        </div>
-        <a asp-controller="Home" asp-action="Index" class="btn btn-primary btn-sm">
-            <i class="bi bi-kanban-fill me-1"></i> Ir al Tablero
-        </a>
+<div class="page-head">
+    <div>
+        <h1 class="page-title">Mi dashboard</h1>
+        <p class="page-sub">Resumen de tus tareas y actividad.</p>
     </div>
+    <a class="btn btn-secondary" asp-controller="Home" asp-action="Index">Ir al tablero</a>
+</div>
 
-    <!-- Key Metrics Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small fw-bold text-uppercase">Total Tareas</div>
-                        <div class="fs-3 fw-bold mt-1">@Model.TotalTasks</div>
-                    </div>
-                    <div class="stat-icon bg-primary-subtle text-primary">
-                        <i class="bi bi-layers-fill"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small fw-bold text-uppercase">En Progreso</div>
-                        <div class="fs-3 fw-bold mt-1 text-purple">@Model.InProgressCount</div>
-                    </div>
-                    <div class="stat-icon bg-purple-subtle text-purple" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
-                        <i class="bi bi-arrow-repeat"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small fw-bold text-uppercase">Completadas</div>
-                        <div class="fs-3 fw-bold mt-1 text-success">@Model.DoneCount</div>
-                    </div>
-                    <div class="stat-icon bg-success-subtle text-success">
-                        <i class="bi bi-check-circle-fill"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6">
-            <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-muted small fw-bold text-uppercase">Vencidas</div>
-                        <div class="fs-3 fw-bold mt-1 text-danger">@Model.OverdueCount</div>
-                    </div>
-                    <div class="stat-icon bg-danger-subtle text-danger">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-label">Tareas</span>
+        <div class="stat-value">@Model.TotalTasks</div>
     </div>
-
-    <!-- Status Breakdown Row -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-2 col-6">
-            <div class="p-3 bg-body-tertiary rounded-3 border text-center">
-                <div class="text-muted small">BACKLOG</div>
-                <div class="fs-4 fw-bold">@Model.BacklogCount</div>
-            </div>
-        </div>
-        <div class="col-md-2 col-6">
-            <div class="p-3 bg-body-tertiary rounded-3 border text-center">
-                <div class="text-muted small">TODO</div>
-                <div class="fs-4 fw-bold text-primary">@Model.TodoCount</div>
-            </div>
-        </div>
-        <div class="col-md-2 col-6">
-            <div class="p-3 bg-body-tertiary rounded-3 border text-center">
-                <div class="text-muted small">IN PROGRESS</div>
-                <div class="fs-4 fw-bold" style="color: #8b5cf6;">@Model.InProgressCount</div>
-            </div>
-        </div>
-        <div class="col-md-2 col-6">
-            <div class="p-3 bg-body-tertiary rounded-3 border text-center">
-                <div class="text-muted small">BLOCKED</div>
-                <div class="fs-4 fw-bold text-danger">@Model.BlockedCount</div>
-            </div>
-        </div>
-        <div class="col-md-2 col-6">
-            <div class="p-3 bg-body-tertiary rounded-3 border text-center">
-                <div class="text-muted small">REVIEW</div>
-                <div class="fs-4 fw-bold text-warning">@Model.ReviewCount</div>
-            </div>
-        </div>
-        <div class="col-md-2 col-6">
-            <div class="p-3 bg-body-tertiary rounded-3 border text-center">
-                <div class="text-muted small">DONE</div>
-                <div class="fs-4 fw-bold text-success">@Model.DoneCount</div>
-            </div>
-        </div>
+    <div class="stat-card accent-success">
+        <span class="stat-label">Completadas</span>
+        <div class="stat-value">@Model.CompletedTasks</div>
     </div>
-
-    <!-- Breakdown Charts / Tables -->
-    <div class="row g-4 mb-4">
-        <!-- Tasks by Priority -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-body border-0 fw-bold">
-                    <i class="bi bi-flag-fill me-2 text-warning"></i> Tareas por Prioridad
-                </div>
-                <div class="card-body">
-                    @foreach (var kvp in Model.TasksByPriority)
-                    {
-                        var pct = Model.TotalTasks > 0 ? (kvp.Value * 100 / Model.TotalTasks) : 0;
-                        var barColor = kvp.Key.ToUpper() switch {
-                            "CRITICAL" => "bg-danger",
-                            "HIGH" => "bg-warning",
-                            "MEDIUM" => "bg-info",
-                            _ => "bg-secondary"
-                        };
-
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between small fw-bold mb-1">
-                                <span>@kvp.Key</span>
-                                <span>@kvp.Value tareas (@pct%)</span>
-                            </div>
-                            <div class="progress" style="height: 10px;">
-                                <div class="progress-bar @barColor" role="progressbar" style="width: @pct%"></div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- Tasks by Project -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-body border-0 fw-bold">
-                    <i class="bi bi-folder-fill me-2 text-primary"></i> Tareas por Proyecto
-                </div>
-                <div class="card-body">
-                    @if (!Model.TasksByProject.Any())
-                    {
-                        <p class="text-muted small">Sin proyectos registrados.</p>
-                    }
-                    else
-                    {
-                        @foreach (var kvp in Model.TasksByProject)
-                        {
-                            var pct = Model.TotalTasks > 0 ? (kvp.Value * 100 / Model.TotalTasks) : 0;
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between small fw-bold mb-1">
-                                    <span>📁 @kvp.Key</span>
-                                    <span>@kvp.Value tareas (@pct%)</span>
-                                </div>
-                                <div class="progress" style="height: 10px;">
-                                    <div class="progress-bar bg-primary" role="progressbar" style="width: @pct%"></div>
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
-        </div>
+    <div class="stat-card accent-danger">
+        <span class="stat-label">Vencidas</span>
+        <div class="stat-value">@Model.OverdueCount</div>
     </div>
+</div>
 
-    <!-- Overdue & Recent Tasks Row -->
-    <div class="row g-4">
-        <!-- Overdue List -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-body border-0 fw-bold text-danger">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i> Tareas Vencidas (@Model.OverdueCount)
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#ID</th>
-                                    <th>Título</th>
-                                    <th>Vencimiento</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (!Model.OverdueTasks.Any())
-                                {
-                                    <tr>
-                                        <td colspan="4" class="text-center text-muted py-3">¡Excelente! No hay tareas vencidas.</td>
-                                    </tr>
-                                }
-                                else
-                                {
-                                    @foreach (var t in Model.OverdueTasks)
-                                    {
-                                        <tr style="cursor: pointer;" onclick="openTaskDetailsModal(@t.Id)">
-                                            <td class="fw-bold">#@t.Id</td>
-                                            <td>@t.Title</td>
-                                            <td class="text-danger fw-bold">@t.DueDate?.ToString("dd/MM/yyyy")</td>
-                                            <td><span class="badge bg-secondary">@t.Status.Name</span></td>
-                                        </tr>
-                                    }
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div class="content-grid three mb-section">
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Por estado</h2></div>
+        <table class="table table-sm">
+            <tbody>
+                @foreach (var row in Model.TasksByStatus)
+                {
+                    <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Por prioridad</h2></div>
+        <table class="table table-sm">
+            <tbody>
+                @foreach (var row in Model.TasksByPriority)
+                {
+                    <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Por proyecto</h2></div>
+        <table class="table table-sm">
+            <tbody>
+                @foreach (var row in Model.TasksByProject)
+                {
+                    <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+</div>
 
-        <!-- Recent Tasks List -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-body border-0 fw-bold">
-                    <i class="bi bi-clock-history me-2 text-info"></i> Tareas Creadas Recientemente
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#ID</th>
-                                    <th>Título</th>
-                                    <th>Creación</th>
-                                    <th>Prioridad</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var t in Model.RecentTasks)
-                                {
-                                    <tr style="cursor: pointer;" onclick="openTaskDetailsModal(@t.Id)">
-                                        <td class="fw-bold">#@t.Id</td>
-                                        <td>@t.Title</td>
-                                        <td class="text-muted small">@t.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
-                                        <td><span class="badge bg-primary">@t.Priority.Name</span></td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="content-grid two">
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Vencidas</h2></div>
+        @if (!Model.OverdueTasks.Any())
+        {
+            <div class="panel-body text-muted small">No tienes tareas vencidas.</div>
+        }
+        else
+        {
+            <ul class="list-group list-group-flush">
+                @foreach (var task in Model.OverdueTasks)
+                {
+                    <li class="list-group-item d-flex justify-content-between gap-3">
+                        <span>#@task.Id · @task.Title</span>
+                        <span class="text-danger small text-nowrap">@task.DueDate?.ToString("dd/MM/yyyy HH:mm")</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Recientes</h2></div>
+        <ul class="list-group list-group-flush">
+            @foreach (var task in Model.RecentTasks)
+            {
+                <li class="list-group-item d-flex justify-content-between gap-3">
+                    <span>#@task.Id · @task.Title</span>
+                    <span class="badge tag-chip">@task.Status.Name</span>
+                </li>
+            }
+        </ul>
+    </section>
 </div>

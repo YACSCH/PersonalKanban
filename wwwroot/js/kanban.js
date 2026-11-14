@@ -1,272 +1,220 @@
-/* Personal Kanban JavaScript - Drag & Drop & Interactive Modals */
+(function () {
+    'use strict';
 
-document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    initDragAndDrop();
-});
+    function antiforgeryToken() {
+        var input = document.querySelector('#antiforgery input[name="__RequestVerificationToken"]');
+        return input ? input.value : '';
+    }
 
-// Theme Management (Light / Dark mode)
-function initTheme() {
-    const savedTheme = localStorage.getItem('kanban_theme') || 'light';
-    setTheme(savedTheme);
+    function authHeaders() {
+        return { 'RequestVerificationToken': antiforgeryToken() };
+    }
 
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            setTheme(newTheme);
+    async function post(url) {
+        return fetch(url, { method: 'POST', headers: authHeaders() });
+    }
+
+    // ---------- Drag & drop ----------
+    var dragged = null;
+
+    document.addEventListener('dragstart', function (e) {
+        var card = e.target.closest('.kanban-card');
+        if (!card) return;
+        dragged = card;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    });
+
+    document.addEventListener('dragend', function () {
+        if (dragged) dragged.classList.remove('dragging');
+        dragged = null;
+        document.querySelectorAll('.drag-over').forEach(function (el) {
+            el.classList.remove('drag-over');
         });
-    }
-}
-
-function setTheme(theme) {
-    document.documentElement.setAttribute('data-bs-theme', theme);
-    localStorage.setItem('kanban_theme', theme);
-    
-    const icon = document.getElementById('themeIcon');
-    if (icon) {
-        icon.className = theme === 'dark' ? 'bi bi-sun-fill text-warning' : 'bi bi-moon-stars-fill text-primary';
-    }
-}
-
-// Drag & Drop Handler
-function initDragAndDrop() {
-    const cards = document.querySelectorAll('.kanban-card');
-    const containers = document.querySelectorAll('.kanban-cards-wrapper');
-
-    cards.forEach(card => {
-        card.addEventListener('dragstart', handleDragStart);
-        card.addEventListener('dragend', handleDragEnd);
     });
 
-    containers.forEach(container => {
-        container.addEventListener('dragover', handleDragOver);
-        container.addEventListener('dragenter', handleDragEnter);
-        container.addEventListener('dragleave', handleDragLeave);
-        container.addEventListener('drop', handleDrop);
-    });
-}
-
-let draggedCard = null;
-
-function handleDragStart(e) {
-    draggedCard = this;
-    this.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', this.dataset.taskId);
-}
-
-function handleDragEnd(e) {
-    this.classList.remove('dragging');
-    draggedCard = null;
-    document.querySelectorAll('.kanban-cards-wrapper').forEach(c => c.classList.remove('drag-over'));
-}
-
-function handleDragOver(e) {
-    if (e.preventDefault) {
+    document.addEventListener('dragover', function (e) {
+        var body = e.target.closest('.kanban-column-body');
+        if (!body || !dragged) return;
         e.preventDefault();
+        body.classList.add('drag-over');
+    });
+
+    document.addEventListener('dragleave', function (e) {
+        var body = e.target.closest('.kanban-column-body');
+        if (body) body.classList.remove('drag-over');
+    });
+
+    function refreshCount(column) {
+        var pill = column.querySelector('.count-pill');
+        if (pill) pill.textContent = column.querySelectorAll('.kanban-card').length;
     }
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-}
 
-function handleDragEnter(e) {
-    this.classList.add('drag-over');
-}
+    document.addEventListener('drop', async function (e) {
+        var body = e.target.closest('.kanban-column-body');
+        if (!body || !dragged) return;
+        e.preventDefault();
+        body.classList.remove('drag-over');
 
-function handleDragLeave(e) {
-    if (e.target === this) {
-        this.classList.remove('drag-over');
-    }
-}
+        // dragend dispara al soltar y limpia la variable global antes del fetch.
+        var card = dragged;
+        var column = body.closest('.kanban-column');
+        var taskId = parseInt(card.dataset.taskId, 10);
+        var statusId = parseInt(column.dataset.statusId, 10);
 
-async function handleDrop(e) {
-    e.preventDefault();
-    this.classList.remove('drag-over');
-
-    if (!draggedCard) return;
-
-    const taskId = parseInt(draggedCard.dataset.taskId);
-    const newStatusId = parseInt(this.dataset.statusId);
-    const currentStatusId = parseInt(draggedCard.dataset.statusId);
-
-    if (newStatusId === currentStatusId) return;
-
-    // Visual update first
-    this.appendChild(draggedCard);
-    draggedCard.dataset.statusId = newStatusId;
-
-    updateColumnCounts();
-
-    // Send AJAX request
-    try {
-        const response = await fetch('/Tasks/ChangeStatus', {
+        var response = await fetch('/Tasks/ChangeStatus', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-                taskId: taskId,
-                statusId: newStatusId
-            })
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ taskId: taskId, statusId: statusId })
         });
 
-        const data = await response.json();
-        if (!response.ok || !data.success) {
-            showToast('Error', data.message || 'No se pudo cambiar el estado de la tarea.', 'danger');
-            // Revert movement if failed
-            location.reload();
+        if (response.ok) {
+            var source = card.closest('.kanban-column');
+            body.appendChild(card);
+            card.dataset.statusId = statusId;
+            refreshCount(source);
+            refreshCount(column);
         } else {
-            showToast('Estado Actualizado', 'La tarea se movió correctamente.', 'success');
-        }
-    } catch (err) {
-        console.error('Error changing status:', err);
-        showToast('Error de conexión', 'Ocurrió un fallo al comunicar con el servidor.', 'danger');
-        location.reload();
-    }
-}
-
-function updateColumnCounts() {
-    document.querySelectorAll('.kanban-column').forEach(col => {
-        const countBadge = col.querySelector('.kanban-column-count');
-        const cards = col.querySelectorAll('.kanban-card');
-        if (countBadge) {
-            countBadge.textContent = cards.length;
+            alert('No se pudo mover la tarea.');
+            location.reload();
         }
     });
-}
 
-// Modal Loaders
-async function openCreateTaskModal() {
-    try {
-        const res = await fetch('/Tasks/Create');
-        const html = await res.text();
-        document.getElementById('modalContainer').innerHTML = html;
-        const modal = new bootstrap.Modal(document.getElementById('taskFormModal'));
-        modal.show();
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-async function openEditTaskModal(taskId) {
-    try {
-        const res = await fetch(`/Tasks/Edit/${taskId}`);
-        const html = await res.text();
-        document.getElementById('modalContainer').innerHTML = html;
-        const modal = new bootstrap.Modal(document.getElementById('taskFormModal'));
-        modal.show();
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-async function openTaskDetailsModal(taskId) {
-    try {
-        const res = await fetch(`/Tasks/Details/${taskId}`);
-        const html = await res.text();
-        document.getElementById('modalContainer').innerHTML = html;
-        const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
-        modal.show();
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-async function submitTaskForm(formElement) {
-    const formData = new FormData(formElement);
-    try {
-        const res = await fetch(formElement.action, {
-            method: 'POST',
-            body: formData
+    // ---------- Modales ----------
+    function showModal(modalEl) {
+        var container = document.getElementById('modal-container');
+        // Quita el foco antes de que Bootstrap oculte el modal con aria-hidden.
+        modalEl.addEventListener('hide.bs.modal', function () {
+            if (modalEl.contains(document.activeElement)) document.activeElement.blur();
         });
-
-        if (res.headers.get('content-type')?.includes('application/json')) {
-            const data = await res.json();
-            if (data.success) {
-                const modalEl = document.getElementById('taskFormModal');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) modal.hide();
-                location.reload();
-            } else {
-                showToast('Error', data.message, 'danger');
-            }
-        } else {
-            // Re-render form validation errors inside modal
-            const html = await res.text();
-            document.getElementById('modalContainer').innerHTML = html;
-            const modal = new bootstrap.Modal(document.getElementById('taskFormModal'));
-            modal.show();
-        }
-    } catch (err) {
-        console.error(err);
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            container.innerHTML = '';
+        });
+        new bootstrap.Modal(modalEl).show();
     }
-}
 
-async function confirmDeleteTask(taskId) {
-    if (confirm('¿Está seguro de eliminar esta tarea? Se guardará en la papelera para evitar pérdidas accidentales.')) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-        const formData = new FormData();
-        if (token) formData.append('__RequestVerificationToken', token);
-        formData.append('id', taskId);
+    async function openModal(url) {
+        var container = document.getElementById('modal-container');
+        var open = document.querySelector('#modal-container .modal');
+        if (open) {
+            var instance = bootstrap.Modal.getInstance(open);
+            if (instance) instance.hide();
+            await new Promise(function (resolve) { setTimeout(resolve, 200); });
+        }
 
-        try {
-            const res = await fetch('/Tasks/Delete', {
+        var response = await fetch(url);
+        if (!response.ok) {
+            alert('No se pudo abrir la ventana.');
+            return;
+        }
+
+        container.innerHTML = await response.text();
+        var modalEl = container.querySelector('.modal');
+        if (modalEl) showModal(modalEl);
+    }
+
+    // ---------- Acciones ----------
+    document.addEventListener('click', function (e) {
+        var opener = e.target.closest('[data-modal-url]');
+        if (opener) {
+            e.preventDefault();
+            openModal(opener.dataset.modalUrl);
+            return;
+        }
+
+        var deleteTask = e.target.closest('[data-delete-task]');
+        if (deleteTask) {
+            e.preventDefault();
+            if (!confirm('¿Eliminar esta tarea?')) return;
+            post('/Tasks/Delete/' + deleteTask.dataset.deleteTask).then(function (response) {
+                if (response.ok) location.reload();
+                else alert('No se pudo eliminar la tarea.');
+            });
+            return;
+        }
+
+        var deleteChecklist = e.target.closest('[data-delete-checklist]');
+        if (deleteChecklist) {
+            e.preventDefault();
+            var taskId = deleteChecklist.dataset.taskId;
+            var itemId = deleteChecklist.dataset.deleteChecklist;
+            post('/Tasks/DeleteChecklistItem?checklistItemId=' + itemId + '&taskId=' + taskId)
+                .then(replaceChecklist);
+        }
+    });
+
+    document.addEventListener('change', function (e) {
+        var toggle = e.target.closest('[data-toggle-checklist]');
+        if (!toggle) return;
+
+        var taskId = toggle.dataset.taskId;
+        var itemId = toggle.dataset.toggleChecklist;
+        post('/Tasks/ToggleChecklistItem?checklistItemId=' + itemId + '&taskId=' + taskId)
+            .then(replaceChecklist);
+    });
+
+    async function replaceChecklist(response) {
+        if (!response.ok) {
+            alert('No se pudo actualizar la subtarea.');
+            return;
+        }
+        var container = document.getElementById('checklist-container');
+        if (container) container.innerHTML = await response.text();
+    }
+
+    // ---------- Formularios AJAX ----------
+    document.addEventListener('submit', async function (e) {
+        var form = e.target;
+
+        if (form.matches('[data-ajax-form]')) {
+            e.preventDefault();
+            var response = await fetch(form.action, {
                 method: 'POST',
-                body: formData
+                body: new FormData(form),
+                headers: authHeaders()
             });
 
-            const data = await res.json();
-            if (data.success) {
-                showToast('Eliminada', data.message, 'success');
-                location.reload();
+            var contentType = response.headers.get('content-type') || '';
+            if (contentType.indexOf('application/json') >= 0) {
+                var data = await response.json();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'No se pudo guardar.');
+                }
             } else {
-                showToast('Error', data.message, 'danger');
+                // Errores de validación: se vuelve a mostrar el modal con los mensajes.
+                var container = document.getElementById('modal-container');
+                var open = container.querySelector('.modal');
+                if (open) {
+                    var instance = bootstrap.Modal.getInstance(open);
+                    if (instance) instance.hide();
+                    await new Promise(function (resolve) { setTimeout(resolve, 200); });
+                }
+                container.innerHTML = await response.text();
+                var modalEl = container.querySelector('.modal');
+                if (modalEl) showModal(modalEl);
             }
-        } catch (err) {
-            console.error(err);
+            return;
         }
-    }
-}
 
-// Checklist Helpers in Modal
-function addChecklistInput() {
-    const container = document.getElementById('checklistInputsContainer');
-    if (!container) return;
-    const div = document.createElement('div');
-    div.className = 'input-group mb-2';
-    div.innerHTML = `
-        <input type="text" name="NewChecklistItems" class="form-control form-control-sm" placeholder="Nueva subtarea..." />
-        <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.parentElement.remove()">
-            <i class="bi bi-trash"></i>
-        </button>
-    `;
-    container.appendChild(div);
-}
-
-// Toast Notifications
-function showToast(title, message, type = 'info') {
-    const toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) return;
-
-    const bgClass = type === 'success' ? 'bg-success text-white' : type === 'danger' ? 'bg-danger text-white' : 'bg-primary text-white';
-    
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast align-items-center ${bgClass} border-0 show mb-2`;
-    toastEl.setAttribute('role', 'alert');
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <strong>${title}:</strong> ${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-
-    toastContainer.appendChild(toastEl);
-    setTimeout(() => {
-        toastEl.remove();
-    }, 4000);
-}
+        if (form.matches('[data-comment-form]') || form.matches('[data-checklist-form]')) {
+            e.preventDefault();
+            var res = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: authHeaders()
+            });
+            if (!res.ok) {
+                alert('No se pudo guardar.');
+                return;
+            }
+            var html = await res.text();
+            var target = form.matches('[data-comment-form]')
+                ? document.getElementById('comments-container')
+                : document.getElementById('checklist-container');
+            if (target) target.innerHTML = html;
+            form.reset();
+        }
+    });
+})();
