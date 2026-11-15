@@ -65,5 +65,30 @@ namespace PersonalKanban.Controllers
             TempData["SuccessMessage"] = $"Usuario {model.Email} creado correctamente.";
             return RedirectToAction(nameof(Users));
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                TempData["ErrorMessage"] = "El usuario no existe.";
+                return RedirectToAction(nameof(Users));
+            }
+
+            var temporaryPassword = TemporaryPassword.Create();
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, temporaryPassword);
+            if (!result.Succeeded)
+            {
+                TempData["ErrorMessage"] = string.Join(" ", result.Errors.Select(e => e.Description));
+                return RedirectToAction(nameof(Users));
+            }
+
+            TempData["SuccessMessage"] =
+                $"Contraseña temporal de {user.Email}: {temporaryPassword} (cámbiala al iniciar sesión).";
+            return RedirectToAction(nameof(Users));
+        }
     }
 }

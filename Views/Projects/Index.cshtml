@@ -48,7 +48,7 @@ else
                                     <input type="hidden" name="id" value="@project.Id" />
                                     <button class="btn btn-sm btn-outline-secondary">@(project.Active ? "Desactivar" : "Activar")</button>
                                 </form>
-                                <form asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar este proyecto?');">
+                                <form asp-action="Delete" method="post" class="d-inline" data-confirm="¿Eliminar este proyecto?">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@project.Id" />
                                     <button class="btn btn-sm btn-outline-danger">Eliminar</button>

@@ -1,5 +1,7 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PersonalKanban.Data;
 using PersonalKanban.Models;
@@ -10,7 +12,28 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddAntiforgery(o => o.HeaderName = "RequestVerificationToken");
+builder.Services.AddAntiforgery(o =>
+{
+    o.HeaderName = "RequestVerificationToken";
+    if (!builder.Environment.IsDevelopment())
+    {
+        o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // shortcut: límite por IP de conexión; detrás de un proxy todas las peticiones comparten la IP del proxy.
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Falta la cadena de conexión 'DefaultConnection'.");
@@ -58,6 +81,22 @@ builder.Services.AddScoped<SettingsService>();
 
 var app = builder.Build();
 
+// Cabeceras de seguridad para todas las respuestas, incluidas las de error.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    // shortcut: 'unsafe-inline' en style-src por los style="width:%" de las barras; mover a clases si crece.
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; " +
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+        "img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net; " +
+        "connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
+    await next();
+});
+
 // Migraciones + roles + usuario administrador inicial
 using (var scope = app.Services.CreateScope())
 {
@@ -77,15 +116,14 @@ using (var scope = app.Services.CreateScope())
     var configuredEmail = app.Configuration["Admin:Email"];
     var configuredPassword = app.Configuration["Admin:Password"];
 
-    if (!app.Environment.IsDevelopment() &&
-        (string.IsNullOrWhiteSpace(configuredEmail) || string.IsNullOrWhiteSpace(configuredPassword)))
+    if (string.IsNullOrWhiteSpace(configuredEmail) || string.IsNullOrWhiteSpace(configuredPassword))
     {
         throw new InvalidOperationException(
-            "Configura Admin:Email y Admin:Password (variables Admin__Email y Admin__Password).");
+            "Configura Admin:Email y Admin:Password (user-secrets en Development; Admin__Email y Admin__Password en producción).");
     }
 
-    var adminEmail = string.IsNullOrWhiteSpace(configuredEmail) ? "admin@kanban.local" : configuredEmail;
-    var adminPassword = string.IsNullOrWhiteSpace(configuredPassword) ? "Admin123$" : configuredPassword;
+    var adminEmail = configuredEmail;
+    var adminPassword = configuredPassword;
     var userManager = services.GetRequiredService<UserManager<AppUser>>();
     var admin = await userManager.FindByEmailAsync(adminEmail);
     if (admin == null)
@@ -113,6 +151,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -29,6 +29,8 @@ namespace PersonalKanban.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Project project)
         {
+            // El Id lo asigna la base de datos; evita mass assignment desde el POST.
+            project.Id = 0;
             if (ModelState.IsValid)
             {
                 await _projectService.CreateProjectAsync(project);

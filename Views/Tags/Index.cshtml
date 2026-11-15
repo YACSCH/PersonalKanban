@@ -55,7 +55,7 @@ else
                             </td>
                             <td>@tag.TaskTags.Count</td>
                             <td class="text-end">
-                                <form asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar esta etiqueta?');">
+                                <form asp-action="Delete" method="post" class="d-inline" data-confirm="¿Eliminar esta etiqueta?">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@tag.Id" />
                                     <button class="btn btn-sm btn-outline-danger">Eliminar</button>

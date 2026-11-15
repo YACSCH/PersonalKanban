@@ -48,6 +48,7 @@
                     <th>Rol</th>
                     <th class="text-end">Tareas</th>
                     <th>Creado</th>
+                    <th class="text-end">Contraseña</th>
                 </tr>
             </thead>
             <tbody>
@@ -67,6 +68,14 @@
                         </td>
                         <td class="text-end">@(taskCounts.TryGetValue(user.Email ?? "", out var count) ? count : 0)</td>
                         <td class="small text-muted">@user.CreatedAt.ToString("dd/MM/yyyy")</td>
+                        <td class="text-end">
+                            <form asp-action="ResetPassword" method="post" class="d-inline"
+                                  data-confirm="¿Restablecer la contraseña de @user.Email? Se mostrará una contraseña temporal.">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@user.Id" />
+                                <button type="submit" class="btn btn-sm btn-secondary">Restablecer</button>
+                            </form>
+                        </td>
                     </tr>
                 }
             </tbody>

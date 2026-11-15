@@ -1,6 +1,6 @@
 -- Importa los datos de la base SQLite anterior (legacy/kanban.db) al usuario admin.
 -- Uso, con la aplicación ya arrancada al menos una vez (crea el admin):
---   docker compose exec -T db psql -U kanban -d kanban -v admin_email='admin@kanban.local' -f - < scripts/import-legacy.sql
+--   docker compose exec -T db psql -U kanban_app -d kanban -v admin_email='admin@kanban.local' -f - < scripts/import-legacy.sql
 
 BEGIN;
 
