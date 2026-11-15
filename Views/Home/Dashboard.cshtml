@@ -1,6 +1,12 @@
 @model DashboardViewModel
 @{
     ViewData["Title"] = "Dashboard";
+
+    var statusRows = Model.TasksByStatus.Where(r => r.Count > 0).ToList();
+    var priorityRows = Model.TasksByPriority.Where(r => r.Count > 0).ToList();
+    var projectRows = Model.TasksByProject.Where(r => r.Count > 0).ToList();
+    Func<int, int> percent = count =>
+        Model.TotalTasks == 0 ? 0 : (int)Math.Round(count * 100.0 / Model.TotalTasks);
 }
 
 <div class="page-head">
@@ -12,18 +18,23 @@
 </div>
 
 <div class="stat-grid">
-    <div class="stat-card">
+    <a class="stat-card" asp-controller="Home" asp-action="Index">
         <span class="stat-label">Tareas</span>
         <div class="stat-value">@Model.TotalTasks</div>
-    </div>
-    <div class="stat-card accent-success">
+    </a>
+    <a class="stat-card accent-neutral" asp-controller="Home" asp-action="Index">
+        <span class="stat-label">Activas</span>
+        <div class="stat-value">@Model.ActiveTasks</div>
+    </a>
+    <a class="stat-card accent-success" asp-controller="Home" asp-action="Index">
         <span class="stat-label">Completadas</span>
         <div class="stat-value">@Model.CompletedTasks</div>
-    </div>
-    <div class="stat-card accent-danger">
+        <div class="stat-note">@Model.CompletionRate% del total</div>
+    </a>
+    <a class="stat-card accent-danger" asp-controller="Home" asp-action="Overdue">
         <span class="stat-label">Vencidas</span>
         <div class="stat-value">@Model.OverdueCount</div>
-    </div>
+    </a>
 </div>
 
 <div class="content-grid three mb-section">
@@ -31,9 +42,24 @@
         <div class="panel-head"><h2 class="panel-title">Por estado</h2></div>
         <table class="table table-sm">
             <tbody>
-                @foreach (var row in Model.TasksByStatus)
+                @if (statusRows.Count == 0)
                 {
-                    <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                    <tr><td class="text-muted small">Sin tareas.</td></tr>
+                }
+                else
+                {
+                    @foreach (var row in statusRows)
+                    {
+                        <tr>
+                            <th scope="row" class="fw-normal">@row.Name</th>
+                            <td class="w-50">
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" style="width: @percent(row.Count)%"></div>
+                                </div>
+                            </td>
+                            <td class="text-end">@row.Count</td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -42,9 +68,26 @@
         <div class="panel-head"><h2 class="panel-title">Por prioridad</h2></div>
         <table class="table table-sm">
             <tbody>
-                @foreach (var row in Model.TasksByPriority)
+                @if (priorityRows.Count == 0)
                 {
-                    <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                    <tr><td class="text-muted small">Sin tareas.</td></tr>
+                }
+                else
+                {
+                    @foreach (var row in priorityRows)
+                    {
+                        <tr>
+                            <th scope="row" class="fw-normal">
+                                <a asp-controller="Home" asp-action="Index" asp-route-PriorityId="@row.Id">@row.Name</a>
+                            </th>
+                            <td class="w-50">
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" style="width: @percent(row.Count)%"></div>
+                                </div>
+                            </td>
+                            <td class="text-end">@row.Count</td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -53,9 +96,33 @@
         <div class="panel-head"><h2 class="panel-title">Por proyecto</h2></div>
         <table class="table table-sm">
             <tbody>
-                @foreach (var row in Model.TasksByProject)
+                @if (projectRows.Count == 0)
                 {
-                    <tr><td>@row.Key</td><td class="text-end">@row.Value</td></tr>
+                    <tr><td class="text-muted small">Sin tareas.</td></tr>
+                }
+                else
+                {
+                    @foreach (var row in projectRows)
+                    {
+                        <tr>
+                            <th scope="row" class="fw-normal">
+                                @if (row.Id > 0)
+                                {
+                                    <a asp-controller="Home" asp-action="Index" asp-route-ProjectId="@row.Id">@row.Name</a>
+                                }
+                                else
+                                {
+                                    @row.Name
+                                }
+                            </th>
+                            <td class="w-50">
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" style="width: @percent(row.Count)%"></div>
+                                </div>
+                            </td>
+                            <td class="text-end">@row.Count</td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -65,33 +132,53 @@
 <div class="content-grid two">
     <section class="panel">
         <div class="panel-head"><h2 class="panel-title">Vencidas</h2></div>
-        @if (!Model.OverdueTasks.Any())
+        @if (Model.OverdueTasks.Count == 0)
         {
             <div class="panel-body text-muted small">No tienes tareas vencidas.</div>
         }
         else
         {
-            <ul class="list-group list-group-flush">
+            <div class="list-group list-group-flush">
                 @foreach (var task in Model.OverdueTasks)
                 {
-                    <li class="list-group-item d-flex justify-content-between gap-3">
-                        <span>#@task.Id · @task.Title</span>
-                        <span class="text-danger small text-nowrap">@task.DueDate?.ToString("dd/MM/yyyy HH:mm")</span>
-                    </li>
+                    <button type="button"
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-3 w-100 text-start"
+                            data-modal-url="@Url.Action("Details", "Tasks", new { id = task.Id })">
+                        <span>
+                            <span class="d-block fw-semibold">#@task.Id · @task.Title</span>
+                            <span class="small text-muted">@task.Priority.Name · @(task.Project?.Name ?? "Sin proyecto")</span>
+                        </span>
+                        <span class="small text-danger text-nowrap">@task.DueDate?.ToString("dd/MM/yyyy")</span>
+                    </button>
                 }
-            </ul>
+            </div>
         }
     </section>
     <section class="panel">
         <div class="panel-head"><h2 class="panel-title">Recientes</h2></div>
-        <ul class="list-group list-group-flush">
-            @foreach (var task in Model.RecentTasks)
-            {
-                <li class="list-group-item d-flex justify-content-between gap-3">
-                    <span>#@task.Id · @task.Title</span>
-                    <span class="badge tag-chip">@task.Status.Name</span>
-                </li>
-            }
-        </ul>
+        @if (Model.RecentTasks.Count == 0)
+        {
+            <div class="panel-body text-muted small">Aún no tienes tareas.</div>
+        }
+        else
+        {
+            <div class="list-group list-group-flush">
+                @foreach (var task in Model.RecentTasks)
+                {
+                    <button type="button"
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-3 w-100 text-start"
+                            data-modal-url="@Url.Action("Details", "Tasks", new { id = task.Id })">
+                        <span>
+                            <span class="d-block fw-semibold">#@task.Id · @task.Title</span>
+                            <span class="small text-muted">@task.Priority.Name · @(task.Project?.Name ?? "Sin proyecto")</span>
+                        </span>
+                        <span class="text-end">
+                            <span class="badge tag-chip d-block mb-1">@task.Status.Name</span>
+                            <span class="small text-muted text-nowrap">@((task.UpdatedAt ?? task.CreatedAt).ToString("dd/MM/yyyy"))</span>
+                        </span>
+                    </button>
+                }
+            </div>
+        }
     </section>
 </div>

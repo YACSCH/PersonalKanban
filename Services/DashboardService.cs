@@ -18,57 +18,67 @@ namespace PersonalKanban.Services
             var now = DateTime.Now;
 
             var tasks = await _context.TaskItems
+                .AsNoTracking()
                 .Include(t => t.Status)
                 .Include(t => t.Priority)
                 .Include(t => t.Project)
-                .Include(t => t.TaskTags).ThenInclude(tt => tt.Tag)
-                .Include(t => t.ChecklistItems)
                 .ToListAsync();
 
             var statuses = await _context.Statuses.Where(s => s.Active).OrderBy(s => s.Order).ToListAsync();
             var priorities = await _context.Priorities.OrderBy(p => p.Order).ToListAsync();
             var projects = await _context.Projects.OrderBy(p => p.Name).ToListAsync();
 
-            var model = new DashboardViewModel
-            {
-                TotalTasks = tasks.Count,
-                CompletedTasks = tasks.Count(t => t.Status.IsTerminal),
-                OverdueCount = tasks.Count(t => t.DueDate.HasValue && t.DueDate.Value < now && !t.Status.IsTerminal)
-            };
+            var completed = tasks.Count(t => t.Status.IsTerminal);
+            var overdue = tasks
+                .Where(t => t.DueDate.HasValue && t.DueDate.Value < now && !t.Status.IsTerminal)
+                .OrderBy(t => t.DueDate)
+                .ToList();
 
-            foreach (var status in statuses)
-            {
-                model.TasksByStatus[status.Name] = tasks.Count(t => t.StatusId == status.Id);
-            }
-
-            foreach (var priority in priorities)
-            {
-                model.TasksByPriority[priority.Name] = tasks.Count(t => t.PriorityId == priority.Id);
-            }
-
-            foreach (var project in projects)
-            {
-                model.TasksByProject[project.Name] = tasks.Count(t => t.ProjectId == project.Id);
-            }
+            var projectRows = projects
+                .Select(p => new DistributionItem
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Count = tasks.Count(t => t.ProjectId == p.Id)
+                })
+                .ToList();
 
             int unassignedCount = tasks.Count(t => t.ProjectId == null);
             if (unassignedCount > 0)
             {
-                model.TasksByProject["Sin Proyecto"] = unassignedCount;
+                projectRows.Add(new DistributionItem { Name = "Sin Proyecto", Count = unassignedCount });
             }
 
-            model.OverdueTasks = tasks
-                .Where(t => t.DueDate.HasValue && t.DueDate.Value < now && !t.Status.IsTerminal)
-                .OrderBy(t => t.DueDate)
-                .Take(10)
-                .ToList();
-
-            model.RecentTasks = tasks
-                .OrderByDescending(t => t.CreatedAt)
-                .Take(10)
-                .ToList();
-
-            return model;
+            return new DashboardViewModel
+            {
+                TotalTasks = tasks.Count,
+                ActiveTasks = tasks.Count - completed,
+                CompletedTasks = completed,
+                OverdueCount = overdue.Count,
+                CompletionRate = tasks.Count == 0 ? 0 : (int)Math.Round(completed * 100.0 / tasks.Count),
+                TasksByStatus = statuses
+                    .Select(s => new DistributionItem
+                    {
+                        Id = s.Id,
+                        Name = s.Name,
+                        Count = tasks.Count(t => t.StatusId == s.Id)
+                    })
+                    .ToList(),
+                TasksByPriority = priorities
+                    .Select(p => new DistributionItem
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        Count = tasks.Count(t => t.PriorityId == p.Id)
+                    })
+                    .ToList(),
+                TasksByProject = projectRows,
+                OverdueTasks = overdue.Take(10).ToList(),
+                RecentTasks = tasks
+                    .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt)
+                    .Take(10)
+                    .ToList()
+            };
         }
 
         public async Task<AdminDashboardViewModel> GetAdminDashboardAsync()
