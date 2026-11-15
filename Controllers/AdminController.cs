@@ -33,7 +33,9 @@ namespace PersonalKanban.Controllers
             var admins = await _userManager.GetUsersInRoleAsync("Admin");
             var stats = await _dashboardService.GetAdminDashboardAsync();
             ViewBag.AdminIds = admins.Select(a => a.Id).ToHashSet();
-            ViewBag.TaskCounts = stats.Users.ToDictionary(u => u.Email, u => u.Total);
+            ViewBag.TaskCounts = stats.Users
+                .GroupBy(u => u.Email)
+                .ToDictionary(g => g.Key, g => g.First().Total);
             return View(users);
         }
 
@@ -85,6 +87,9 @@ namespace PersonalKanban.Controllers
                 TempData["ErrorMessage"] = string.Join(" ", result.Errors.Select(e => e.Description));
                 return RedirectToAction(nameof(Users));
             }
+
+            // Invalida sesiones activas previas del usuario
+            await _userManager.UpdateSecurityStampAsync(user);
 
             TempData["SuccessMessage"] =
                 $"Contraseña temporal de {user.Email}: {temporaryPassword} (cámbiala al iniciar sesión).";

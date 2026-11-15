@@ -130,7 +130,7 @@ namespace PersonalKanban.Services
 
             model.RecentActivity = activity.Select(h => new AdminDashboardViewModel.ActivityRow
             {
-                Email = h.TaskItem.Owner.Email ?? h.TaskItem.OwnerId,
+                Email = h.TaskItem.Owner?.Email ?? h.TaskItem.OwnerId ?? "(sin usuario)",
                 TaskTitle = h.TaskItem.Title,
                 Action = h.Action,
                 OldValue = h.OldValue,

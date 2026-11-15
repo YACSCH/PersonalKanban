@@ -20,8 +20,9 @@ namespace PersonalKanban.Services
             return await query.OrderBy(t => t.Name).ToListAsync();
         }
 
-        public async Task<Tag?> CreateTagAsync(string name)
+        public async Task<Tag?> CreateTagAsync(string? name)
         {
+            if (string.IsNullOrWhiteSpace(name)) return null;
             var ownerId = _context.CurrentUserId
                 ?? throw new InvalidOperationException("No hay usuario autenticado.");
             var nameTrimmed = name.Trim();
@@ -37,8 +38,9 @@ namespace PersonalKanban.Services
             return tag;
         }
 
-        public async Task<bool> UpdateTagAsync(int id, string name)
+        public async Task<bool> UpdateTagAsync(int id, string? name)
         {
+            if (string.IsNullOrWhiteSpace(name)) return false;
             var tag = await _context.Tags.FirstOrDefaultAsync(t => t.Id == id);
             if (tag == null) return false;
 

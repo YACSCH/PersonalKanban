@@ -357,8 +357,9 @@ namespace PersonalKanban.Services
             return true;
         }
 
-        public async Task<bool> AddCommentAsync(int taskId, string commentText)
+        public async Task<bool> AddCommentAsync(int taskId, string? commentText)
         {
+            if (string.IsNullOrWhiteSpace(commentText)) return false;
             var text = commentText.Trim();
             if (text.Length == 0 || text.Length > 1000) return false;
 
@@ -382,8 +383,9 @@ namespace PersonalKanban.Services
             return true;
         }
 
-        public async Task<bool> AddChecklistItemAsync(int taskId, string description)
+        public async Task<bool> AddChecklistItemAsync(int taskId, string? description)
         {
+            if (string.IsNullOrWhiteSpace(description)) return false;
             var text = description.Trim();
             if (text.Length == 0 || text.Length > 250) return false;
 

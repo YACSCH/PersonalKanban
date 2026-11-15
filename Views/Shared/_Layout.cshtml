@@ -42,16 +42,31 @@
                             <li class="nav-item"><a class="@Nav("Admin", "Users")" aria-current="@Current("Admin", "Users")" asp-controller="Admin" asp-action="Users">Usuarios</a></li>
                         }
                     </ul>
-                    <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
-                        <span class="user-chip">
+                    <div class="dropdown mt-3 mt-lg-0">
+                        <button class="btn user-chip dropdown-toggle border-0" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
                             <span class="user-avatar" aria-hidden="true">@(displayName.Length > 0 ? displayName.Substring(0, 1).ToUpperInvariant() : "?")</span>
                             <span class="text-truncate" style="max-width: 180px;">@displayName</span>
-                        </span>
-                        <a class="btn btn-sm btn-secondary" asp-controller="Account" asp-action="ChangePassword">Contraseña</a>
-                        <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-logout">Salir</button>
-                        </form>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userMenuButton">
+                            <li class="dropdown-header small text-muted text-truncate" style="max-width: 220px;">
+                                Conectado como<br/><strong class="text-dark">@displayName</strong>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword">
+                                    Cambiar contraseña
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form asp-controller="Account" asp-action="Logout" method="post" class="m-0 p-0">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        Cerrar sesión
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </div>
