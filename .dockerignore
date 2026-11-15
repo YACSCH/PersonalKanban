@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+bin
+obj
+Tests
+TestResults
+.vs
+.vscode
+.idea
+legacy
+docker-compose.yml
+*.db
+*.db-shm
+*.db-wal
+.DS_Store

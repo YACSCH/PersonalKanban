@@ -1,11 +1,12 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using PersonalKanban.Models;
 
 namespace PersonalKanban.Data
 {
-    public class KanbanDbContext : IdentityDbContext<AppUser>
+    public class KanbanDbContext : IdentityDbContext<AppUser>, IDataProtectionKeyContext
     {
         private readonly IHttpContextAccessor _http;
 
@@ -28,6 +29,9 @@ namespace PersonalKanban.Data
         public DbSet<TaskComment> TaskComments { get; set; } = null!;
         public DbSet<TaskHistory> TaskHistories { get; set; } = null!;
         public DbSet<TaskChecklistItem> TaskChecklistItems { get; set; } = null!;
+
+        // Claves de Data Protection en la BD: varias instancias serverless deben compartirlas.
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

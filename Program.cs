@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -47,6 +48,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<KanbanDbContext>(options =>
     options.UseNpgsql(connectionString, o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+
+// Las cookies de Identity se cifran con estas claves; en serverless deben vivir fuera del contenedor.
+builder.Services.AddDataProtection().PersistKeysToDbContext<KanbanDbContext>();
 
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     {
